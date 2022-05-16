@@ -47,19 +47,19 @@ packaging = "*"
 pandas = ">=0.21.0"
 pillow = ">=6.2.0"
 protobuf = ">=3.12, <4"
-pyarrow = "*"
-pydeck = ">=0.1.dev5"
+#pyarrow = "*" # HACK: For stlite, comment out as it's not Pyodide-compatible
+#pydeck = ">=0.1.dev5" # HACK: For stlite, comment out as it's not Pyodide-compatible
 pympler = ">=0.9"
 python-dateutil = "*"
 requests = "*"
 toml = "*"
 # 5.0 has a fix for etag header: https://github.com/tornadoweb/tornado/issues/2262
-tornado = ">=5.0"
+# tornado = ">=5.0" # HACK: For stlite, comment out as it's not Pyodide-compatible
 tzlocal = "*"
 validators = "*"
 # Don't require watchdog on MacOS, since it'll fail without xcode tools.
 # Without watchdog, we fallback to a polling file watcher to check for app changes.
-watchdog = {version = "*", markers = "platform_system != 'Darwin'"}
+#watchdog = {version = "*", markers = "platform_system != 'Darwin'"} # HACK: For stlite, comment out as it's not Pyodide-compatible
 gitpython = "!=3.1.19"
 typing-extensions = "*"
 semver = "*"

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +24,9 @@ import { IFileURLs, IFileURLsResponse } from "@streamlit/protobuf"
 import { SessionInfo } from "./SessionInfo"
 import { StreamlitEndpoints } from "./StreamlitEndpoints"
 import { isValidFormId } from "./util/utils"
+
+import { FormDataEncoder, FormDataLike } from "form-data-encoder"
+import type { StliteKernel } from "@stlite/kernel"
 
 /** Common widget protobuf fields that are used by the FileUploadClient. */
 interface WidgetInfo {
@@ -86,6 +90,13 @@ export class FileUploadClient {
     this.requestFileURLs = props.requestFileURLs
   }
 
+  // Stlite: Add kernel
+  private kernel: StliteKernel | undefined
+
+  public setKernel(kernel: StliteKernel) {
+    this.kernel = kernel
+  }
+
   /**
    * Upload a file to the given URL. It will be associated with this browser's
    * sessionID.
@@ -107,15 +118,40 @@ export class FileUploadClient {
     signal?: AbortSignal
   ): Promise<void> {
     this.offsetPendingRequestCount(widget.formId, 1)
-    return this.endpoints
-      .uploadFileUploaderFile(
-        fileUploadUrl,
-        file,
-        this.sessionInfo.current.sessionId,
-        onUploadProgress,
-        signal
-      )
-      .finally(() => this.offsetPendingRequestCount(widget.formId, -1))
+
+    // Stlite: Use form upload
+    const form = new FormData()
+    form.append(file.name, file)
+
+    const encoder = new FormDataEncoder(form as unknown as FormDataLike)
+    const bodyBlob = new Blob(encoder as unknown as BufferSource[], {
+      type: encoder.contentType,
+    })
+
+    return bodyBlob.arrayBuffer().then(body => {
+      if (this.kernel == null) {
+        throw new Error("Kernel not ready")
+      }
+
+      return this.kernel
+        .sendHttpRequest(
+          {
+            method: "PUT",
+            path: fileUploadUrl,
+            body,
+            headers: { ...encoder.headers },
+          },
+          signal
+        )
+        .then(response => {
+          if (Math.floor(response.statusCode / 100) !== 2) {
+            throw new Error(
+              `Unexpected status code ${response.statusCode} when uploading file.`
+            )
+          }
+        })
+        .finally(() => this.offsetPendingRequestCount(widget.formId, -1))
+    })
   }
 
   /**
@@ -123,12 +159,24 @@ export class FileUploadClient {
    * @param fileUrl: the URL of the file to delete.
    */
   public deleteFile(fileUrl: string): Promise<void> {
-    return this.endpoints.deleteFileAtURL
-      ? this.endpoints.deleteFileAtURL(
-          fileUrl,
-          this.sessionInfo.current.sessionId
-        )
-      : Promise.resolve()
+    if (this.kernel == null) {
+      throw new Error("Kernel not ready")
+    }
+
+    return this.kernel
+      .sendHttpRequest({
+        method: "DELETE",
+        path: fileUrl,
+        body: "",
+        headers: {},
+      })
+      .then(response => {
+        if (Math.floor(response.statusCode / 100) !== 2) {
+          throw new Error(
+            `Unexpected status code ${response.statusCode} when uploading file.`
+          )
+        }
+      })
   }
 
   /**

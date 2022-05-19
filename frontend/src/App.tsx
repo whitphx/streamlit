@@ -22,6 +22,8 @@ import { fromJS } from "immutable"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
+import { StliteKernel, ConnectionManager } from "@stlite/stlite-kernel"
+
 // Other local imports.
 import AppContext from "src/components/core/AppContext"
 import AppView from "src/components/core/AppView"
@@ -34,7 +36,6 @@ import {
   DialogType,
   StreamlitDialog,
 } from "src/components/core/StreamlitDialog/"
-import { ConnectionManager } from "src/lib/ConnectionManager"
 import { PerformanceEvents } from "src/lib/profiler/PerformanceEvents"
 import {
   createFormsData,
@@ -180,6 +181,8 @@ export class App extends PureComponent<Props, State> {
 
   private readonly componentRegistry: ComponentRegistry
 
+  private stliteKernel: StliteKernel
+
   constructor(props: Props) {
     super(props)
 
@@ -247,6 +250,10 @@ export class App extends PureComponent<Props, State> {
 
     window.streamlitDebug = {}
     window.streamlitDebug.closeConnection = this.closeConnection.bind(this)
+
+    this.stliteKernel = new StliteKernel({
+      pyodideUrl: "https://cdn.jsdelivr.net/pyodide/v0.20.0/full/pyodide.js",
+    })
   }
 
   /**
@@ -276,6 +283,7 @@ export class App extends PureComponent<Props, State> {
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.connectionManager = new ConnectionManager({
+      kernel: this.stliteKernel,
       onMessage: this.handleMessage,
       onConnectionError: this.handleConnectionError,
       connectionStateChanged: this.handleConnectionStateChanged,

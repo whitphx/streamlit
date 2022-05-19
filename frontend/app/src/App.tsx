@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +22,9 @@ import { enableMapSet, enablePatches } from "immer"
 import { getLogger } from "loglevel"
 import { flushSync } from "react-dom"
 import Hotkeys from "react-hot-keys"
+
+import { StliteKernelContext } from "@stlite/kernel/contexts"
+import { ConnectionManager } from "@stlite/kernel/react"
 
 import AppView from "@streamlit/app/src/components/AppView"
 import DeployButton from "@streamlit/app/src/components/DeployButton"
@@ -48,7 +52,6 @@ import { StyledApp } from "@streamlit/app/src/styled-components"
 import getBrowserInfo from "@streamlit/app/src/util/getBrowserInfo"
 import {
   AppConfig,
-  ConnectionManager,
   ConnectionState,
   DefaultStreamlitEndpoints,
   ErrorDetails,
@@ -282,6 +285,9 @@ export class App extends PureComponent<Props, State> {
   // we have received a NewSession message after the latest rerun request.
   // This will allow us to ignore finished messages from previous script runs.
   private hasReceivedNewSession: boolean = false
+
+  static override contextType = StliteKernelContext
+  override context!: React.ContextType<typeof StliteKernelContext>
 
   public constructor(props: Props) {
     super(props)
@@ -527,7 +533,13 @@ export class App extends PureComponent<Props, State> {
 
     this.applyInitialHostConfig()
 
+    const kernel = this.context?.kernel
+    if (kernel == null) {
+      throw new Error("Kernel is not set in the context.")
+    }
+
     this.connectionManager = new ConnectionManager({
+      kernel,
       getLastSessionId: () => this.sessionInfo.last?.sessionId,
       endpoints: this.endpoints,
       onMessage: this.handleMessage,
@@ -607,6 +619,11 @@ export class App extends PureComponent<Props, State> {
   }
 
   override componentDidMount(): void {
+    const kernel = this.context?.kernel
+    if (kernel == null) {
+      throw new Error("Kernel is not set in the context.")
+    }
+
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.initializeConnectionManager()
@@ -616,6 +633,8 @@ export class App extends PureComponent<Props, State> {
       type: "SCRIPT_RUN_STATE_CHANGED",
       scriptRunState: this.state.scriptRunState,
     })
+
+    this.uploadClient.setKernel(kernel)
 
     if (isScrollingHidden()) {
       document.body.classList.add("embedded")

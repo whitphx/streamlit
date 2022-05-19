@@ -332,6 +332,10 @@ export class App extends PureComponent<Props, State> {
     }
   }
 
+  componentWillUnmount() {
+    this.stliteKernel.dispose()
+  }
+
   showError(title: string, errorNode: ReactNode): void {
     logError(errorNode)
     const newDialog: DialogProps = {

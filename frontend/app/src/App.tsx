@@ -20,6 +20,8 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
+import { ConnectionManager, StliteKernelContext } from "@stlite/kernel"
+
 // Other local imports.
 import { AppContext } from "@streamlit/app/src/components/AppContext"
 import AppView from "@streamlit/app/src/components/AppView"
@@ -33,7 +35,7 @@ import {
   DialogType,
   StreamlitDialog,
 } from "@streamlit/app/src/components/StreamlitDialog"
-import { ConnectionManager } from "@streamlit/app/src/connection/ConnectionManager"
+// Stlite: we use a replacement implementation:
 import { ConnectionState } from "@streamlit/app/src/connection/ConnectionState"
 import { SessionEventDispatcher } from "@streamlit/app/src/SessionEventDispatcher"
 import {
@@ -242,6 +244,9 @@ export class App extends PureComponent<Props, State> {
 
   private readonly appNavigation: AppNavigation
 
+  static contextType = StliteKernelContext
+  context!: React.ContextType<typeof StliteKernelContext>
+
   public constructor(props: Props) {
     super(props)
 
@@ -417,7 +422,13 @@ export class App extends PureComponent<Props, State> {
   }
 
   initializeConnectionManager(): void {
+    const kernel = this.context?.kernel
+    if (kernel == null) {
+      throw new Error("Kernel is not set in the context.")
+    }
+
     this.connectionManager = new ConnectionManager({
+      kernel,
       sessionInfo: this.sessionInfo,
       endpoints: this.endpoints,
       onMessage: this.handleMessage,
@@ -457,6 +468,11 @@ export class App extends PureComponent<Props, State> {
   }
 
   componentDidMount(): void {
+    const kernel = this.context?.kernel
+    if (kernel == null) {
+      throw new Error("Kernel is not set in the context.")
+    }
+
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.initializeConnectionManager()
@@ -465,6 +481,8 @@ export class App extends PureComponent<Props, State> {
       type: "SCRIPT_RUN_STATE_CHANGED",
       scriptRunState: this.state.scriptRunState,
     })
+
+    this.uploadClient.setKernel(kernel)
 
     if (isScrollingHidden()) {
       document.body.classList.add("embedded")

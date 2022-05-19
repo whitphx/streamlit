@@ -26,6 +26,7 @@
     "@emotion/serialize": "^1.1.1",
     "@emotion/styled": "^11.10.5",
     "@streamlit/lib": "1.41.0",
+    "@stlite/kernel": "*",
     "@swc/plugin-emotion": "^3.0.9",
     "@vitejs/plugin-react-swc": "^3.6.0",
     "axios": "^1.7.8",

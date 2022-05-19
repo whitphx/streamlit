@@ -20,6 +20,8 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
+import { ConnectionManager, StliteKernelContext, FileUploadClient } from "@stlite/kernel"
+
 // Other local imports.
 import { AppContext } from "@streamlit/app/src/components/AppContext"
 import AppView from "@streamlit/app/src/components/AppView"
@@ -33,7 +35,6 @@ import {
   DialogType,
   StreamlitDialog,
 } from "@streamlit/app/src/components/StreamlitDialog"
-import { ConnectionManager } from "@streamlit/app/src/connection/ConnectionManager"
 import { ConnectionState } from "@streamlit/app/src/connection/ConnectionState"
 import { SessionEventDispatcher } from "@streamlit/app/src/SessionEventDispatcher"
 import {
@@ -56,7 +57,6 @@ import {
   BaseUriParts,
   RERUN_PROMPT_MODAL_DIALOG,
   SessionInfo,
-  FileUploadClient,
   logError,
   logMessage,
   AppRoot,
@@ -236,6 +236,8 @@ export class App extends PureComponent<Props, State> {
 
   private readonly embeddingId: string = generateUID()
 
+  static contextType = StliteKernelContext
+
   public constructor(props: Props) {
     super(props)
 
@@ -383,6 +385,7 @@ export class App extends PureComponent<Props, State> {
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.connectionManager = new ConnectionManager({
+      kernel: this.context.kernel,
       sessionInfo: this.sessionInfo,
       endpoints: this.endpoints,
       onMessage: this.handleMessage,
@@ -414,6 +417,7 @@ export class App extends PureComponent<Props, State> {
         this.setLibConfig(libConfig)
       },
     })
+    this.uploadClient.setKernel(this.context.kernel)
 
     if (isScrollingHidden()) {
       document.body.classList.add("embedded")

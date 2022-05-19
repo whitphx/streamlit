@@ -20,6 +20,8 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
+import { ConnectionManager, StliteKernelContext } from "@stlite/kernel"
+
 // Other local imports.
 import AppContext from "src/components/core/AppContext"
 import AppView from "src/components/core/AppView"
@@ -32,7 +34,6 @@ import {
   DialogType,
   StreamlitDialog,
 } from "src/components/core/StreamlitDialog/"
-import { ConnectionManager } from "src/lib/ConnectionManager"
 import { PerformanceEvents } from "src/lib/profiler/PerformanceEvents"
 import {
   createFormsData,
@@ -187,6 +188,8 @@ export class App extends PureComponent<Props, State> {
 
   private readonly embeddingId: string = generateUID()
 
+  static contextType = StliteKernelContext
+
   constructor(props: Props) {
     super(props)
 
@@ -286,6 +289,7 @@ export class App extends PureComponent<Props, State> {
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.connectionManager = new ConnectionManager({
+      kernel: this.context.kernel,
       onMessage: this.handleMessage,
       onConnectionError: this.handleConnectionError,
       connectionStateChanged: this.handleConnectionStateChanged,

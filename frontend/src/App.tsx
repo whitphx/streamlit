@@ -121,6 +121,7 @@ export interface Props {
     setTheme: (theme: ThemeConfig) => void
     addThemes: (themes: ThemeConfig[]) => void
   }
+  stliteMainScriptData?: string
 }
 
 interface State {
@@ -255,6 +256,8 @@ export class App extends PureComponent<Props, State> {
 
     this.stliteKernel = new StliteKernel({
       pyodideUrl: "https://cdn.jsdelivr.net/pyodide/v0.20.0/full/pyodide.js",
+      command: "run",
+      mainScriptData: props.stliteMainScriptData,
     })
   }
 
@@ -320,6 +323,12 @@ export class App extends PureComponent<Props, State> {
     if (requestedPageScriptHash !== null) {
       this.onPageChange(requestedPageScriptHash)
       this.props.s4aCommunication.onPageChanged()
+    }
+
+    if (prevProps.stliteMainScriptData !== this.props.stliteMainScriptData) {
+      this.stliteKernel.setMainScriptData(
+        this.props.stliteMainScriptData || ""
+      )
     }
   }
 

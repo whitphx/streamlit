@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-import time
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Final
 
@@ -81,11 +81,13 @@ class PollingPathWatcher:
         return repr_(self)
 
     def _schedule(self) -> None:
-        def task():
-            time.sleep(_POLLING_PERIOD_SECS)
+        # Stlite: Fix this method to use asyncio instead of threading, which does not work on Pyodide.
+
+        async def task():
+            await asyncio.sleep(_POLLING_PERIOD_SECS)
             self._check_if_path_changed()
 
-        PollingPathWatcher._executor.submit(task)
+        asyncio.create_task(task())
 
     def _check_if_path_changed(self) -> None:
         if not self._active:

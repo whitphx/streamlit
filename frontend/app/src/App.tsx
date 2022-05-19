@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +20,9 @@ import { createRef, type JSX, PureComponent, type ReactNode } from "react"
 import { enableMapSet, enablePatches } from "immer"
 import { getLogger } from "loglevel"
 import { flushSync } from "react-dom"
+
+import { StliteKernelContext } from "@stlite/kernel/contexts"
+import { ConnectionManager as StliteConnectionManager } from "@stlite/kernel/react"
 
 import AppView from "@streamlit/app/src/components/AppView/AppView"
 import DeployButton from "@streamlit/app/src/components/DeployButton/DeployButton"
@@ -59,7 +63,6 @@ import { StyledApp } from "@streamlit/app/src/styled-components"
 import getBrowserInfo from "@streamlit/app/src/util/getBrowserInfo"
 import {
   type AppConfig,
-  ConnectionManager,
   ConnectionState,
   DefaultStreamlitEndpoints,
   type ErrorDetails,
@@ -68,6 +71,7 @@ import {
   type LibConfig,
   parseUriIntoBaseParts,
   type StreamlitEndpoints,
+  ConnectionManager as ServerConnectionManager,
 } from "@streamlit/connection"
 import {
   AppRoot,
@@ -304,7 +308,10 @@ export class App extends PureComponent<Props, State> {
 
   private readonly sessionEventDispatcher = new SessionEventDispatcher()
 
-  private connectionManager: ConnectionManager | null
+  private connectionManager:
+    | ServerConnectionManager
+    | StliteConnectionManager
+    | null
 
   private readonly widgetMgr: WidgetStateManager
 
@@ -414,6 +421,9 @@ export class App extends PureComponent<Props, State> {
     }
     return this.cachedSkillsCalloutEnvEligible
   }
+
+  static override contextType = StliteKernelContext
+  override context!: React.ContextType<typeof StliteKernelContext>
 
   public constructor(props: Props) {
     super(props)
@@ -704,7 +714,8 @@ export class App extends PureComponent<Props, State> {
 
     this.applyInitialHostConfig()
 
-    this.connectionManager = new ConnectionManager({
+    const kernel = this.context?.kernel
+    const connectionManagerProps = {
       getLastSessionId: () => this.sessionInfo.last?.sessionId,
       endpoints: this.endpoints,
       onMessage: this.handleMessage,
@@ -781,7 +792,15 @@ export class App extends PureComponent<Props, State> {
         // Set the streamlit-lib specific config settings in LibConfigContext:
         this.setLibConfig(libConfig)
       },
-    })
+    }
+
+    this.connectionManager =
+      kernel == null
+        ? new ServerConnectionManager(connectionManagerProps)
+        : new StliteConnectionManager({
+            ...connectionManagerProps,
+            kernel,
+          })
 
     this.isInitializingConnectionManager = false
   }
@@ -796,6 +815,11 @@ export class App extends PureComponent<Props, State> {
       type: "SCRIPT_RUN_STATE_CHANGED",
       scriptRunState: this.state.scriptRunState,
     })
+
+    const kernel = this.context?.kernel
+    if (kernel != null) {
+      this.uploadClient.setKernel(kernel)
+    }
 
     if (isScrollingHidden()) {
       document.body.classList.add("embedded")

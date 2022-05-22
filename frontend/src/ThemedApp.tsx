@@ -18,11 +18,7 @@ import {
 import AppWithScreencast from "./App"
 import { StyledDataFrameOverlay } from "./styled-components"
 
-export interface ThemedAppProps {
-  stliteMainScriptData?: string
-}
-
-const ThemedApp = (props: ThemedAppProps): JSX.Element => {
+const ThemedApp = (): JSX.Element => {
   const defaultTheme = getDefaultTheme()
 
   const [theme, setTheme] = React.useState<ThemeConfig>(defaultTheme)
@@ -80,7 +76,6 @@ const ThemedApp = (props: ThemedAppProps): JSX.Element => {
             addThemes,
             availableThemes,
           }}
-          stliteMainScriptData={props.stliteMainScriptData}
         />
         {/* The data grid requires one root level portal element for rendering cell overlays */}
         <StyledDataFrameOverlay id="portal" />

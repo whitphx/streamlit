@@ -663,8 +663,9 @@ export class App extends PureComponent<Props, State> {
       const qs = queryString ? `?${queryString}` : ""
       const basePathPrefix = basePath ? `/${basePath}` : ""
 
-      const pagePath = viewingMainPage ? "" : newPageName
-      const pageUrl = `${basePathPrefix}/${pagePath}${qs}`
+      // The trailing slash is not attached if `viewingMainPage` is true
+      const pagePath = viewingMainPage ? "" : `/${newPageName}`
+      const pageUrl = `${basePathPrefix}${pagePath}${qs}`
 
       window.history.pushState({}, "", pageUrl)
     }

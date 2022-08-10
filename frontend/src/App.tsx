@@ -20,7 +20,7 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
-import { ConnectionManager, StliteKernelContext } from "@stlite/kernel"
+import { ConnectionManager, StliteKernelContext, FileUploadClient } from "@stlite/kernel"
 
 // Other local imports.
 import AppContext from "src/components/core/AppContext"
@@ -79,7 +79,6 @@ import { without, concat } from "lodash"
 import { RERUN_PROMPT_MODAL_DIALOG } from "src/lib/baseconsts"
 import { SessionInfo } from "src/lib/SessionInfo"
 import { MetricsManager } from "src/lib/MetricsManager"
-import { FileUploadClient } from "src/lib/FileUploadClient"
 import { logError, logMessage } from "src/lib/log"
 import { AppRoot } from "src/lib/AppNode"
 
@@ -294,6 +293,7 @@ export class App extends PureComponent<Props, State> {
       setAllowedOriginsResp:
         this.props.hostCommunication.setAllowedOriginsResp,
     })
+    this.uploadClient.setKernel(this.context.kernel)
 
     if (isEmbeddedInIFrame()) {
       document.body.classList.add("embedded")

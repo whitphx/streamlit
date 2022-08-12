@@ -18,6 +18,7 @@ import React, { ReactElement, useEffect, useRef } from "react"
 import { Video as VideoProto } from "@streamlit/lib/src/proto"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
 import { IS_DEV_ENV } from "@streamlit/lib/src/baseconsts"
+import { useStliteMediaObjectUrl } from "@stlite/kernel"
 
 const DEFAULT_HEIGHT = 528
 
@@ -41,7 +42,8 @@ export default function Video({
 
   /* Element may contain "url" or "data" property. */
 
-  const { type, url, startTime, subtitles } = element
+  const { type, url: rawUrl, startTime, subtitles } = element
+  const url = useStliteMediaObjectUrl(rawUrl)
 
   // Handle startTime changes
   useEffect(() => {

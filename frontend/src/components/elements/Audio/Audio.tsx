@@ -18,6 +18,7 @@ import React, { ReactElement, useContext, useEffect, useRef } from "react"
 import { Audio as AudioProto } from "src/autogen/proto"
 import AppContext from "src/components/core/AppContext"
 import { buildMediaUri } from "src/lib/UriUtil"
+import { useStliteMediaObjectUrl } from "@stlite/kernel"
 
 export interface AudioProps {
   width: number
@@ -34,7 +35,8 @@ export default function Audio({ element, width }: AudioProps): ReactElement {
     }
   }, [element.startTime])
 
-  const uri = buildMediaUri(element.url, getBaseUriParts())
+  const rawUrl = useStliteMediaObjectUrl(element.url)
+  const uri = buildMediaUri(rawUrl, getBaseUriParts())
   return (
     <audio
       id="audio"

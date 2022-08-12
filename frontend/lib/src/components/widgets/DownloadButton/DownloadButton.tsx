@@ -42,6 +42,8 @@ import { StyledErrorMessage } from "~lib/styled-components"
 import createDownloadLinkElement from "~lib/util/createDownloadLinkElement"
 import { WidgetStateManager } from "~lib/WidgetStateManager"
 
+import { useDownloadFileFromStlite } from "@stlite/kernel/react"
+
 export interface Props {
   endpoints: StreamlitEndpoints
   disabled: boolean
@@ -125,6 +127,8 @@ function DownloadButton(props: Props): ReactElement {
     }
   }, [requestDeferredFile, deferredFileId, endpoints, enforceDownloadInNewTab])
 
+  const downloadFileFromStlite = useDownloadFileFromStlite()
+
   const handleDownloadClick = useCallback((): void => {
     if (disabled) {
       return
@@ -133,6 +137,11 @@ function DownloadButton(props: Props): ReactElement {
     if (!ignoreRerun) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: Fix this
       widgetMgr.setTriggerValue(element, { fromUi: true }, fragmentId)
+    }
+
+    if (element.url.startsWith("/media")) {
+      downloadFileFromStlite(element.url)
+      return
     }
 
     const isDeferred = Boolean(deferredFileId?.length)
@@ -159,6 +168,7 @@ function DownloadButton(props: Props): ReactElement {
     handleDeferredDownload,
     downloadUrl,
     enforceDownloadInNewTab,
+    downloadFileFromStlite,
   ])
 
   useRegisterShortcut({

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +20,7 @@ import { Video as VideoProto } from "@streamlit/lib/src/proto"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
 import { IS_DEV_ENV } from "@streamlit/lib/src/baseconsts"
 import { WidgetStateManager as ElementStateManager } from "@streamlit/lib/src/WidgetStateManager"
+import { useStliteMediaObjectUrl, useStliteMediaObjects } from "@stlite/kernel"
 
 const DEFAULT_HEIGHT = 528
 
@@ -43,8 +45,18 @@ export default function Video({
   const videoRef = useRef<HTMLVideoElement>(null)
 
   /* Element may contain "url" or "data" property. */
-  const { type, url, startTime, subtitles, endTime, loop, autoplay, muted } =
-    element
+  const {
+    type,
+    url: rawUrl,
+    startTime,
+    subtitles: rawSubtitles,
+    endTime,
+    loop,
+    autoplay,
+    muted,
+  } = element
+  const url = useStliteMediaObjectUrl(rawUrl)
+  const subtitles = useStliteMediaObjects(rawSubtitles)
 
   const preventAutoplay = useMemo<boolean>(() => {
     if (!element.id) {

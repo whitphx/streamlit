@@ -19,6 +19,7 @@ import React, { ReactElement, useContext, useEffect, useRef } from "react"
 import AppContext from "src/components/core/AppContext"
 import { Video as VideoProto } from "src/autogen/proto"
 import { buildMediaUri } from "src/lib/UriUtil"
+import { useStliteMediaObjectUrl } from "@stlite/stlite-kernel"
 
 const DEFAULT_HEIGHT = 528
 
@@ -33,7 +34,8 @@ export default function Video({ element, width }: VideoProps): ReactElement {
 
   /* Element may contain "url" or "data" property. */
 
-  const { type, url } = element
+  const { type, url: rawUrl } = element
+  const url = useStliteMediaObjectUrl(rawUrl)
 
   useEffect(() => {
     const videoNode = videoRef.current

@@ -28,6 +28,7 @@ import BaseButton, {
 import { WidgetStateManager } from "~lib/WidgetStateManager"
 import { StreamlitEndpoints } from "~lib/StreamlitEndpoints"
 import { LibContext } from "~lib/components/core/LibContext"
+import { useStliteKernel, downloadFileFromStlite } from "@stlite/kernel"
 
 export interface Props {
   endpoints: StreamlitEndpoints
@@ -69,12 +70,20 @@ function DownloadButton(props: Props): ReactElement {
     endpoints.checkSourceUrlResponse(element.url, "Download Button")
   }, [element.url, endpoints])
 
+  const stliteKernel = useStliteKernel()
+
   const handleDownloadClick: () => void = () => {
     if (!element.ignoreRerun) {
       widgetMgr.setTriggerValue(element, { fromUi: true }, fragmentId)
     }
     // Downloads are only done on links, so create a hidden one and click it
     // for the user.
+
+    if (element.url.startsWith("/media")) {
+      downloadFileFromStlite(stliteKernel, element.url)
+      return
+    }
+
     const link = createDownloadLink(
       endpoints,
       element.url,

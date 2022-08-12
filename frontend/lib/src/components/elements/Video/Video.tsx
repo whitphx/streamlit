@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +24,11 @@ import { ISubtitleTrack, Video as VideoProto } from "@streamlit/protobuf"
 import { useCrossOriginAttribute } from "~lib/hooks/useCrossOriginAttribute"
 import { StreamlitEndpoints } from "~lib/StreamlitEndpoints"
 import { WidgetStateManager as ElementStateManager } from "~lib/WidgetStateManager"
+
+import {
+  useStliteMediaObjectUrl,
+  useStliteMediaObjects,
+} from "@stlite/kernel/react"
 
 import { StyledVideoIframe } from "./styled-components"
 
@@ -48,8 +54,18 @@ function Video({
   const videoRef = useRef<HTMLVideoElement>(null)
 
   /* Element may contain "url" or "data" property. */
-  const { type, url, startTime, subtitles, endTime, loop, autoplay, muted } =
-    element
+  const {
+    type,
+    url: rawUrl,
+    startTime,
+    subtitles: rawSubtitles,
+    endTime,
+    loop,
+    autoplay,
+    muted,
+  } = element
+  const url = useStliteMediaObjectUrl(rawUrl)
+  const subtitles = useStliteMediaObjects(rawSubtitles)
 
   let crossOrigin = useCrossOriginAttribute(url)
 

@@ -35,6 +35,8 @@ import { StreamlitEndpoints } from "~lib/StreamlitEndpoints"
 import createDownloadLinkElement from "~lib/util/createDownloadLinkElement"
 import { WidgetStateManager } from "~lib/WidgetStateManager"
 
+import { useDownloadFileFromStlite } from "@stlite/kernel/react"
+
 export interface Props {
   endpoints: StreamlitEndpoints
   disabled: boolean
@@ -71,11 +73,19 @@ function DownloadButton(props: Props): ReactElement {
     void endpoints.checkSourceUrlResponse(downloadUrl, "Download Button")
   }, [downloadUrl, endpoints])
 
+  const downloadFileFromStlite = useDownloadFileFromStlite()
+
   const handleDownloadClick: () => void = () => {
     if (!ignoreRerun) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: Fix this
       widgetMgr.setTriggerValue(element, { fromUi: true }, fragmentId)
     }
+
+    if (element.url.startsWith("/media")) {
+      downloadFileFromStlite(element.url)
+      return
+    }
+
     // Downloads are only done on links, so create a hidden one and click it
     // for the user.
     const link = createDownloadLinkElement({

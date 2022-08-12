@@ -17,6 +17,7 @@
 import React, { ReactElement, useEffect, useRef } from "react"
 import { Audio as AudioProto } from "@streamlit/lib/src/proto"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
+import { useStliteMediaObjectUrl } from "@stlite/kernel"
 
 export interface AudioProps {
   endpoints: StreamlitEndpoints
@@ -115,7 +116,8 @@ export default function Audio({
     }
   }, [loop, startTime])
 
-  const uri = endpoints.buildMediaURL(element.url)
+  const rawUrl = useStliteMediaObjectUrl(element.url)
+  const uri = endpoints.buildMediaURL(rawUrl)
   return (
     <audio
       data-testid="stAudio"

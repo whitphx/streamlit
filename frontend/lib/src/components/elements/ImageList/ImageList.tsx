@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +34,8 @@ import { useCrossOriginAttribute } from "~lib/hooks/useCrossOriginAttribute"
 import { useRequiredContext } from "~lib/hooks/useRequiredContext"
 import { StreamlitEndpoints } from "~lib/StreamlitEndpoints"
 import { BLOCKED_LINK_URI, isDangerousLinkUri } from "~lib/util/UriUtil"
+
+import { useStliteMediaObjects } from "@stlite/kernel/react"
 
 import {
   StyledCaption,
@@ -157,6 +160,8 @@ function ImageList({
   widthConfig,
   disableFullscreenMode,
 }: Readonly<ImageListProps>): ReactElement {
+  const images = useStliteMediaObjects(element.imgs)
+
   const {
     expanded: isFullScreen,
     width,
@@ -221,7 +226,7 @@ function ImageList({
         data-testid="stImage"
         shouldStretch={shouldStretch}
       >
-        {element.imgs.map((iimage, idx): ReactElement => (
+        {images.map((iimage, idx): ReactElement => (
           <Image
             // TODO: Update to match React best practices
             // eslint-disable-next-line @eslint-react/no-array-index-key

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +24,7 @@ import {
 } from "@streamlit/lib/src/proto"
 import { withFullScreenWrapper } from "@streamlit/lib/src/components/shared/FullScreenWrapper"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
+import { useStliteMediaObjects } from "@stlite/kernel"
 
 import {
   StyledCaption,
@@ -54,6 +56,8 @@ export function ImageList({
   height,
   endpoints,
 }: Readonly<ImageListProps>): ReactElement {
+  const images = useStliteMediaObjects(element.imgs)
+
   // The width field in the proto sets the image width, but has special
   // cases for -1, -2, and -3.
   let containerWidth: number | undefined
@@ -95,7 +99,7 @@ export function ImageList({
       data-testid="stImage"
       style={{ width }}
     >
-      {element.imgs.map((iimage: IImage, idx: number): ReactElement => {
+      {images.map((iimage: IImage, idx: number): ReactElement => {
         const image = iimage as ImageProto
         return (
           <StyledImageContainer data-testid="stImageContainer" key={idx}>

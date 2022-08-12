@@ -23,6 +23,8 @@ import { Audio as AudioProto } from "@streamlit/protobuf"
 import { StreamlitEndpoints } from "~lib/StreamlitEndpoints"
 import { WidgetStateManager as ElementStateManager } from "~lib/WidgetStateManager"
 
+import { useStliteMediaObjectUrl } from "@stlite/kernel"
+
 import { StyledAudio, StyledAudioContainer } from "./styled-components"
 
 const LOG = getLogger("Audio")
@@ -148,7 +150,8 @@ function Audio({
     }
   }, [loop, startTime])
 
-  const uri = endpoints.buildMediaURL(element.url)
+  const rawUrl = useStliteMediaObjectUrl(element.url)
+  const uri = endpoints.buildMediaURL(rawUrl)
 
   const handleAudioError = (
     e: React.SyntheticEvent<HTMLAudioElement>

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +32,8 @@ import Toolbar, {
   StyledToolbarElementContainer,
 } from "~lib/components/shared/Toolbar"
 import { useRequiredContext } from "~lib/hooks/useRequiredContext"
+
+import { useStliteMediaObjects } from "@stlite/kernel"
 
 import {
   StyledCaption,
@@ -68,6 +71,8 @@ function ImageList({
   endpoints,
   disableFullscreenMode,
 }: Readonly<ImageListProps>): ReactElement {
+  const images = useStliteMediaObjects(element.imgs)
+
   const {
     expanded: isFullScreen,
     width,
@@ -145,7 +150,7 @@ function ImageList({
         disableFullscreenMode={disableFullscreenMode}
       ></Toolbar>
       <StyledImageList className="stImage" data-testid="stImage">
-        {element.imgs.map((iimage, idx): ReactElement => {
+        {images.map((iimage, idx): ReactElement => {
           const image = iimage as ImageProto
           return (
             // TODO: Update to match React best practices

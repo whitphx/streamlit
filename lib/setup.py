@@ -44,15 +44,15 @@ INSTALL_REQUIRES = [
     # pyarrow is not semantically versioned, gets new major versions frequently, and
     # doesn't tend to break the API on major version upgrades, so we don't put an
     # upper bound on it.
-    "pyarrow>=7.0",
-    "requests>=2.27, <3",
-    "rich>=10.14.0, <14",
+    # "pyarrow>=7.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
+    # "requests>=2.27, <3", # HACK: For stlite, comment out as it's not Pyodide-compatible
+    # "rich>=10.14.0, <14", # HACK: For stlite, comment out as rich is not really needed for stlite
     "tenacity>=8.1.0, <10",
     "toml>=0.10.1, <2",
     "typing-extensions>=4.3.0, <5",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.
-    "watchdog>=2.1.5, <6; platform_system != 'Darwin'",
+    # "watchdog>=2.1.5, <6; platform_system != 'Darwin'", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 # We want to exclude some dependencies in our internal Snowpark conda distribution of

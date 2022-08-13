@@ -40,7 +40,7 @@ INSTALL_REQUIRES = [
     "pandas>=0.21.0",
     "pillow>=6.2.0",
     "protobuf<4,>=3.12",
-    "pyarrow>=4.0",
+    # "pyarrow>=4.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
     "pympler>=0.9",
     "python-dateutil",
     "requests>=2.4",
@@ -52,7 +52,7 @@ INSTALL_REQUIRES = [
     "validators>=0.2",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.
-    "watchdog; platform_system != 'Darwin'",
+    # "watchdog; platform_system != 'Darwin'", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 # We want to exclude some dependencies in our internal Snowpark conda distribution of
@@ -61,9 +61,9 @@ INSTALL_REQUIRES = [
 # `pip install streamlit` or `conda install -c conda-forge streamlit`)
 SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES = [
     "gitpython!=3.1.19",
-    "pydeck>=0.1.dev5",
+    # "pydeck>=0.1.dev5", # HACK: For stlite, comment out as it's not Pyodide-compatible
     # 5.0 has a fix for etag header: https://github.com/tornadoweb/tornado/issues/2262
-    "tornado>=5.0",
+    # "tornado>=5.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 if not os.getenv("SNOWPARK_CONDA_BUILD"):

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,8 +54,8 @@ INSTALL_REQUIRES = [
     # pyarrow is not semantically versioned, gets new major versions frequently, and
     # doesn't tend to break the API on major version upgrades, so we don't put an
     # upper bound on it.
-    "pyarrow>=7.0",
-    "requests>=2.27, <3",
+    # "pyarrow>=7.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
+    # "requests>=2.27, <3", # HACK: For stlite, comment out as it's not Pyodide-compatible
     "tenacity>=8.1.0, <10",
     # Starting from Python 3.11, Python has built in support for reading TOML files.
     # Let's make sure to remove this "toml" library when we stop supporting Python 3.10.
@@ -63,7 +64,7 @@ INSTALL_REQUIRES = [
     "typing-extensions>=4.10.0, <5",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.
-    "watchdog>=2.1.5, <7; platform_system != 'Darwin'",
+    # "watchdog>=2.1.5, <7; platform_system != 'Darwin'", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 # We want to exclude some dependencies in our internal Snowpark conda distribution of

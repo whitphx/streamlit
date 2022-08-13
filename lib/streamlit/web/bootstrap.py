@@ -366,5 +366,5 @@ def run(
     # and close all our threads
     _set_up_signal_handler(server)
 
-    # Run the server. This function will not return until the server is shut down.
-    asyncio.run(server.start(_on_server_start))
+    # Run the server.
+    asyncio.get_event_loop().create_task(server.start(_on_server_start))

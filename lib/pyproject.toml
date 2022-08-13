@@ -70,14 +70,14 @@ dependencies = [
   # the index dtype. Pandas 3.x requires Python >= 3.11.
   "pandas>=1.4.0,<4",
   "pillow>=7.1.0,<13",
-  "pydeck>=0.8.0b4,<1",
+  # "pydeck>=0.8.0b4,<1", # HACK: For stlite, excluded (was SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES in setup.py)
   # Release builds generate Python protobuf code with protoc 26.1, whose
   # corresponding minimum runtime version is protobuf 5.26.1.
   "protobuf>=5.26.1,<8",
   # PyArrow 25.0.0 can segfault when first imported from a short-lived worker thread.
   # See https://github.com/apache/arrow/issues/50471.
-  "pyarrow>=7.0,!=25.0.0,<26",
-  "requests>=2.27,<3",
+  # "pyarrow>=7.0,!=25.0.0,<26", # HACK: For stlite, comment out as it's not Pyodide-compatible
+  # "requests>=2.27,<3", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Starting from Python 3.11, Python has built in support for reading TOML files.
   # Let's make sure to remove this "toml" library when we stop supporting Python 3.10.
   "toml>=0.10.1,<2",
@@ -86,22 +86,22 @@ dependencies = [
   # ASGI web-framework. 0.46.0 is the first version whose `GZipMiddleware`
   # excludes `DEFAULT_EXCLUDED_CONTENT_TYPES` (e.g. `text/event-stream`) from
   # compression, which our gzip wrapper relies on.
-  "starlette>=0.46.0,<2",
+  # "starlette>=0.46.0,<2", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # ASGI server:
-  "uvicorn>=0.30.0,<1",
+  # "uvicorn>=0.30.0,<1", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Faster http parsing for Starlette server:
-  "httptools>=0.6.3,<1",
+  # "httptools>=0.6.3,<1", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Required by starlette:
-  "anyio>=4.0.0,<5",
+  # "anyio>=4.0.0,<5", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Required for file-upload support:
-  "python-multipart>=0.0.10,<1",
+  # "python-multipart>=0.0.10,<1", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Required for websocket support:
-  "websockets>=12.0.0,<17",
+  # "websockets>=12.0.0,<17", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Required for cookie signing:
-  "itsdangerous>=2.1.2,<3",
+  # "itsdangerous>=2.1.2,<3", # HACK: For stlite, comment out as it's not Pyodide-compatible
   # Don't require watchdog on MacOS, since it'll fail without xcode tools.
   # Without watchdog, we fallback to a polling file watcher to check for app changes.
-  "watchdog>=2.1.5,<7; platform_system != 'Darwin'",
+  # "watchdog>=2.1.5,<7; platform_system != 'Darwin'", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 [project.optional-dependencies]

@@ -47,8 +47,8 @@ INSTALL_REQUIRES = [
     "pillow>=6.2.0",
     # protobuf 3.20.2 is broken: https://github.com/protocolbuffers/protobuf/issues/10571
     "protobuf<4,>=3.12,!=3.20.2",
-    "pyarrow>=4.0",
-    "pydeck>=0.1.dev5",
+    # "pyarrow>=4.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
+    # "pydeck>=0.1.dev5", # HACK: For stlite, comment out as it's not Pyodide-compatible
     "pympler>=0.9",
     "python-dateutil",
     "requests>=2.4",
@@ -56,13 +56,13 @@ INSTALL_REQUIRES = [
     "semver",
     "toml",
     # 5.0 has a fix for etag header: https://github.com/tornadoweb/tornado/issues/2262
-    "tornado>=5.0",
+    # "tornado>=5.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
     "typing-extensions>=3.10.0.0",
     "tzlocal>=1.1",
     "validators>=0.2",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.
-    "watchdog; platform_system != 'Darwin'",
+    # "watchdog; platform_system != 'Darwin'", # HACK: For stlite, comment out as it's not Pyodide-compatible
 ]
 
 # We want to exclude some dependencies in our internal conda distribution of

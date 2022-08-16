@@ -51,6 +51,8 @@ import {
   sendRenderMessage,
 } from "./componentUtils"
 
+import { CustomComponentIFrame as StliteCustomComponentIFrame } from "@stlite/kernel"
+
 /**
  * If we haven't received a COMPONENT_READY message this many seconds
  * after the component has been created, explain to the user that there
@@ -384,7 +386,7 @@ function ComponentInstance(props: Props): ReactElement {
     <>
       {loadingSkeleton}
       {warns}
-      <iframe
+      <StliteCustomComponentIFrame
         allow={DEFAULT_IFRAME_FEATURE_POLICY}
         ref={iframeRef}
         src={getSrc(componentName, registry, url)}

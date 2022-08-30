@@ -1497,7 +1497,19 @@ export class App extends PureComponent<Props, State> {
 
         const pageUrl = `${basePathPrefix}/${pagePath}${qs}`
 
-        window.history.pushState({}, "", pageUrl)
+        // Stlite: skip history.pushState when the URL has file: protocol as it causes SecurityError.
+        if (window.location.protocol === "file:") {
+          console.warn("Skipping history.pushState() due to file: protocol.")
+          return
+        }
+        // Stlite: Remove the trailing slash unless it results in an empty string to avoid undesirable path overrides such as "/test.html" -> "/test.html/" which is a special case only for stlite, not Streamlit.
+        // See https://github.com/whitphx/stlite/issues/178
+        const trimmedPageUrl =
+          pageUrl.endsWith("/") && pageUrl !== "/"
+            ? pageUrl.slice(0, -1)
+            : pageUrl
+
+        window.history.pushState({}, "", trimmedPageUrl)
       }
     }
   }

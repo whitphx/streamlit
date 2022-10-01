@@ -16,7 +16,7 @@
 
 import React, { useContext, ReactElement } from "react"
 import ReactHtmlParser from "react-html-parser"
-import { useStliteImageList } from "@stlite/stlite-kernel"
+import { useStliteImageList } from "@stlite/kernel"
 
 import {
   IImage,

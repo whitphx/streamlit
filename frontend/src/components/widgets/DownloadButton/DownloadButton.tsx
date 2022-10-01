@@ -25,7 +25,7 @@ import UIButton, {
 import { WidgetStateManager } from "src/lib/WidgetStateManager"
 import StreamlitMarkdown from "src/components/shared/StreamlitMarkdown"
 import { buildMediaUri } from "src/lib/UriUtil"
-import { useStliteKernel, downloadFileFromStlite } from "@stlite/stlite-kernel"
+import { useStliteKernel, downloadFileFromStlite } from "@stlite/kernel"
 
 export interface Props {
   disabled: boolean

@@ -46,7 +46,7 @@
     "@luma.gl/engine": "8.3.3",
     "@luma.gl/gltools": "8.3.3",
     "@luma.gl/webgl": "8.3.3",
-    "@stlite/stlite-kernel": "*",
+    "@stlite/kernel": "*",
     "apache-arrow": "^8.0.0",
     "axios": "^0.21.4",
     "baseui": "9.116.3",

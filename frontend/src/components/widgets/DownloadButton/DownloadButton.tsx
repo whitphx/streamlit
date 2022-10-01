@@ -25,7 +25,7 @@ import UIButton, {
 } from "src/components/shared/Button"
 import { WidgetStateManager } from "src/lib/WidgetStateManager"
 import { buildMediaUri } from "src/lib/UriUtil"
-import { useStliteKernel, downloadFileFromStlite } from "@stlite/stlite-kernel"
+import { useStliteKernel, downloadFileFromStlite } from "@stlite/kernel"
 
 export interface Props {
   disabled: boolean

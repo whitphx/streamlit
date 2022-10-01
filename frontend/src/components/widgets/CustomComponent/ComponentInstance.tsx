@@ -39,7 +39,7 @@ import { Theme, toExportedTheme } from "src/theme"
 import { COMMUNITY_URL, COMPONENT_DEVELOPER_URL } from "src/urls"
 import { ComponentRegistry } from "./ComponentRegistry"
 import { ComponentMessageType, StreamlitMessageType } from "./enums"
-import { CustomComponentIFrame as StliteCustomComponentIFrame } from "@stlite/stlite-kernel"
+import { CustomComponentIFrame as StliteCustomComponentIFrame } from "@stlite/kernel"
 
 /**
  * The current custom component API version. If our API changes,

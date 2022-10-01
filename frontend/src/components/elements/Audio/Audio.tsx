@@ -19,7 +19,7 @@ import React, { ReactElement, useContext, useEffect, useRef } from "react"
 import { Audio as AudioProto } from "src/autogen/proto"
 import AppContext from "src/components/core/AppContext"
 import { buildMediaUri } from "src/lib/UriUtil"
-import { useStliteMediaObjectUrl } from "@stlite/stlite-kernel"
+import { useStliteMediaObjectUrl } from "@stlite/kernel"
 
 export interface AudioProps {
   width: number

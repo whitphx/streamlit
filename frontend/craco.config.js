@@ -14,18 +14,7 @@
  * limitations under the License.
  */
 
-const HardSourceWebpackPlugin = require("hard-source-webpack-plugin")
-
 module.exports = {
-  devServer: {
-    headers: {
-      // This allows static files request other static files in development mode.
-      "Access-Control-Allow-Origin": "*",
-    },
-    watchOptions: {
-      ignored: [/node_modules/, "*.test.{ts,tsx}", /cypress/],
-    },
-  },
   jest: {
     configure: jestConfig => {
       jestConfig.setupFiles = ["jest-canvas-mock"]
@@ -49,8 +38,16 @@ module.exports = {
     },
   },
   webpack: {
-    configure: webpackConfig => {
+    configure: (webpackConfig, { env }) => {
+      webpackConfig.watchOptions = {
+        ignored: ['**/node_modules', "*.test.{ts,tsx}", "**/cypress"],
+      },
+
       webpackConfig.resolve.mainFields = ["module", "main"]
+      webpackConfig.resolve.fallback = {
+        buffer: false,
+        util: false,
+      }
 
       // Apache Arrow uses .mjs
       webpackConfig.module.rules.push({
@@ -62,7 +59,7 @@ module.exports = {
       // find terser plugin
       const minimizerPlugins = webpackConfig.optimization.minimizer
       const terserPluginIndex = minimizerPlugins.findIndex(
-        item => item.options.terserOptions
+        item => item.constructor.name === "TerserPlugin"
       )
 
       if (process.env.BUILD_AS_FAST_AS_POSSIBLE) {
@@ -83,15 +80,6 @@ module.exports = {
       } else {
         const parallel = process.env.CIRCLECI ? false : true
         minimizerPlugins[terserPluginIndex].options.parallel = parallel
-
-        // HardSourceWebpackPlugin adds aggressive build caching.
-        // More info: https://github.com/mzgoddard/hard-source-webpack-plugin
-        //
-        // This speeds up builds for local development.  Empirically, however, it
-        // seems to slow down one-time production builds, so we are making it
-        // possible to turn it off via setting BUILD_AS_FAST_AS_POSSIBLE=1.  This
-        // is useful in CircleCI, when doing releases, etc.
-        webpackConfig.plugins.unshift(new HardSourceWebpackPlugin())
       }
 
       return webpackConfig

@@ -31,7 +31,7 @@ from streamlit.runtime.scriptrunner_utils.exceptions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
     from types import TracebackType
 
     from streamlit.runtime.scriptrunner_utils.script_requests import RerunData
@@ -80,8 +80,8 @@ class modified_sys_path:  # noqa: N801
         return False
 
 
-def exec_func_with_error_handling(
-    func: Callable[[], Any], ctx: ScriptRunContext
+async def exec_func_with_error_handling(
+    func: Callable[[], Awaitable[Any]], ctx: ScriptRunContext
 ) -> tuple[
     Any | None,
     bool,
@@ -133,7 +133,7 @@ def exec_func_with_error_handling(
     uncaught_exception: Exception | None = None
 
     try:
-        result = func()
+        result = await func()
     except RerunException as e:
         rerun_exception_data = e.rerun_data
 

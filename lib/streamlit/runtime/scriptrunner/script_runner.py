@@ -21,6 +21,7 @@ import threading
 import types
 from contextlib import contextmanager
 from enum import Enum
+from inspect import CO_COROUTINE
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Callable, Final
 
@@ -303,7 +304,7 @@ class ScriptRunner:
             # request that we'll handle immediately. When the script finishes,
             # it's possible that another request has come in that we need to
             # handle, which is why we call _run_script in a loop.
-            self._run_script(request.rerun_data)
+            await self._run_script(request.rerun_data)
             request = self._requests.on_scriptrunner_ready()
 
         assert request.type == ScriptRequestType.STOP
@@ -403,7 +404,7 @@ class ScriptRunner:
         finally:
             self._execing = False
 
-    def _run_script(self, rerun_data: RerunData) -> None:
+    async def _run_script(self, rerun_data: RerunData) -> None:
         """Run our script.
 
         Parameters
@@ -597,7 +598,11 @@ class ScriptRunner:
                                 )
                     else:
                         self._fragment_storage.clear()
-                        exec(code, module.__dict__)
+                        if code.co_flags & CO_COROUTINE:
+                            # The source code includes top-level awaits, so the compiled code object is a coroutine.
+                            await eval(code, module.__dict__)
+                        else:
+                            exec(code, module.__dict__)
 
                     self._session_state.maybe_check_serializable()
                     self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = True

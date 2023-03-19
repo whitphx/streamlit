@@ -21,6 +21,7 @@ import threading
 import types
 from contextlib import contextmanager
 from enum import Enum
+from inspect import CO_COROUTINE
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Callable, Final
 
@@ -316,7 +317,7 @@ class ScriptRunner:
             # request that we'll handle immediately. When the script finishes,
             # it's possible that another request has come in that we need to
             # handle, which is why we call _run_script in a loop.
-            self._run_script(request.rerun_data)
+            await self._run_script(request.rerun_data)
             request = self._requests.on_scriptrunner_ready()
 
         assert request.type == ScriptRequestType.STOP
@@ -400,7 +401,7 @@ class ScriptRunner:
         finally:
             self._execing = False
 
-    def _run_script(self, rerun_data: RerunData) -> None:
+    async def _run_script(self, rerun_data: RerunData) -> None:
         """Run our script.
 
         Parameters
@@ -543,7 +544,7 @@ class ScriptRunner:
             # assume is the main script directory.
             module.__dict__["__file__"] = script_path
 
-            def code_to_exec(code=code, module=module, ctx=ctx, rerun_data=rerun_data):
+            async def code_to_exec(code=code, module=module, ctx=ctx, rerun_data=rerun_data):
                 with modified_sys_path(
                     self._main_script_path
                 ), self._set_execing_flag():
@@ -587,7 +588,11 @@ class ScriptRunner:
                                 pass
 
                     else:
-                        exec(code, module.__dict__)
+                        if code.co_flags & CO_COROUTINE:
+                            # The source code includes top-level awaits, so the compiled code object is a coroutine.
+                            await eval(code, module.__dict__)
+                        else:
+                            exec(code, module.__dict__)
                         self._fragment_storage.clear(
                             new_fragment_ids=ctx.new_fragment_ids
                         )
@@ -603,7 +608,7 @@ class ScriptRunner:
                 rerun_exception_data,
                 premature_stop,
                 uncaught_exception,
-            ) = exec_func_with_error_handling(code_to_exec, ctx)
+            ) = await exec_func_with_error_handling(code_to_exec, ctx)
             # setting the session state here triggers a yield-callback call
             # which reads self._requests and checks for rerun data
             self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = run_without_errors

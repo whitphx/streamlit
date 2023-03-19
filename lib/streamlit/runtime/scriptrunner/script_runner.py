@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +20,10 @@ import gc
 import sys
 import threading
 import types
+from collections.abc import Awaitable
 from contextlib import contextmanager
 from enum import Enum
+from inspect import CO_COROUTINE
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
@@ -124,7 +127,7 @@ it in the future.
 # is designed to leverage our original v1 version of multi-page apps. This
 # function will be called to run the script in lieu of the main script. This
 # function simulates the v1 setup using the modern v2 commands (st.navigation)
-def _mpa_v1(main_script_path: str) -> None:
+async def _mpa_v1(main_script_path: str) -> None:
     from pathlib import Path
 
     from streamlit.commands.navigation import PageType, _navigation
@@ -163,7 +166,9 @@ def _mpa_v1(main_script_path: str) -> None:
         expanded=False,
     )
 
-    page.run()
+    maybe_awaitable = page.run()
+    if isinstance(maybe_awaitable, Awaitable):
+        await maybe_awaitable
 
 
 class ScriptRunner:
@@ -374,7 +379,7 @@ class ScriptRunner:
             # request that we'll handle immediately. When the script finishes,
             # it's possible that another request has come in that we need to
             # handle, which is why we call _run_script in a loop.
-            self._run_script(request.rerun_data)
+            await self._run_script(request.rerun_data)
             request = self._requests.on_scriptrunner_ready()
 
         if request.type != ScriptRequestType.STOP:
@@ -466,7 +471,7 @@ class ScriptRunner:
         finally:
             self._execing = False
 
-    def _run_script(self, rerun_data: RerunData) -> None:
+    async def _run_script(self, rerun_data: RerunData) -> None:
         """Run our script.
 
         Parameters
@@ -605,11 +610,11 @@ class ScriptRunner:
             # assume is the main script directory.
             module.__dict__["__file__"] = script_path
 
-            def code_to_exec(
-                code: str = code,
-                module: types.ModuleType = module,
-                ctx: ScriptRunContext = ctx,
-                rerun_data: RerunData = rerun_data,
+            async def code_to_exec(
+                code=code,
+                module=module,
+                ctx=ctx,
+                rerun_data=rerun_data
             ) -> None:
                 with (
                     modified_sys_path(self._main_script_path),
@@ -666,9 +671,13 @@ class ScriptRunner:
 
                     else:
                         if PagesManager.uses_pages_directory:
-                            _mpa_v1(self._main_script_path)
+                            await _mpa_v1(self._main_script_path)
                         else:
-                            exec(code, module.__dict__)  # noqa: S102
+                            if code.co_flags & CO_COROUTINE:
+                                # The source code includes top-level awaits, so the compiled code object is a coroutine.
+                                await eval(code, module.__dict__)  # noqa: S307
+                            else:
+                                exec(code, module.__dict__)  # noqa: S102
                         self._fragment_storage.clear(
                             new_fragment_ids=ctx.new_fragment_ids
                         )
@@ -684,7 +693,7 @@ class ScriptRunner:
                 rerun_exception_data,
                 premature_stop,
                 uncaught_exception,
-            ) = exec_func_with_error_handling(code_to_exec, ctx)
+            ) = await exec_func_with_error_handling(code_to_exec, ctx)
             # setting the session state here triggers a yield-callback call
             # which reads self._requests and checks for rerun data
             self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = run_without_errors

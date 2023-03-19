@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.errors import FragmentHandledException
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
     from streamlit.runtime.scriptrunner.script_run_context import ScriptRunContext
 
 
-def exec_func_with_error_handling(
-    func: Callable[[], None], ctx: ScriptRunContext
+async def exec_func_with_error_handling(
+    func: Callable[[], Awaitable[None]], ctx: ScriptRunContext
 ) -> tuple[
     Any | None,
     bool,
@@ -82,7 +82,7 @@ def exec_func_with_error_handling(
     uncaught_exception: Exception | None = None
 
     try:
-        result = func()
+        result = await func()
     except RerunException as e:
         rerun_exception_data = e.rerun_data
 

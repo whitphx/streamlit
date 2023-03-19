@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from streamlit.delta_generator_singletons import (
     context_dg_stack,
@@ -32,8 +32,8 @@ if TYPE_CHECKING:
     from streamlit.runtime.scriptrunner_utils.script_run_context import ScriptRunContext
 
 
-def exec_func_with_error_handling(
-    func: Callable[[], Any], ctx: ScriptRunContext
+async def exec_func_with_error_handling(
+    func: Callable[[], Awaitable[Any]], ctx: ScriptRunContext
 ) -> tuple[
     Any | None,
     bool,
@@ -85,7 +85,7 @@ def exec_func_with_error_handling(
     uncaught_exception: Exception | None = None
 
     try:
-        result = func()
+        result = await func()
     except RerunException as e:
         rerun_exception_data = e.rerun_data
 

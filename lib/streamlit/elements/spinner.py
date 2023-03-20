@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import contextlib
 import threading
 from typing import Iterator
 
 import streamlit as st
-from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 
 @contextlib.contextmanager
@@ -73,7 +73,9 @@ def spinner(text: str = "In progress...", *, cache: bool = False) -> Iterator[No
                             spinner_proto.cache = cache
                             message._enqueue("spinner", spinner_proto)
 
-        add_script_run_ctx(threading.Timer(DELAY_SECS, set_message)).start()
+        # stlite: Since threading does not work on Pyodide, we use asyncio instead.
+        # add_script_run_ctx(threading.Timer(DELAY_SECS, set_message)).start()
+        asyncio.get_event_loop().call_later(DELAY_SECS, set_message)
 
         # Yield control back to the context.
         yield

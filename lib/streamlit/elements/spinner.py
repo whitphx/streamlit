@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import threading
 from typing import TYPE_CHECKING, Final
@@ -24,7 +25,6 @@ from streamlit.elements.lib.layout_utils import (
     Width,
     validate_width,
 )
-from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -117,7 +117,8 @@ def spinner(
                         "spinner", spinner_proto, layout_config=layout_config
                     )
 
-        add_script_run_ctx(threading.Timer(DELAY_SECS, set_message)).start()
+        # Stlite: Since threading does not work on Pyodide, we use asyncio instead.
+        asyncio.get_event_loop().call_later(DELAY_SECS, set_message)
 
         # Yield control back to the context.
         yield

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import threading
 from typing import TYPE_CHECKING, Final, cast
@@ -22,7 +23,7 @@ from streamlit.elements.lib.layout_utils import create_layout_config
 from streamlit.errors import NoSessionContext
 from streamlit.proto.Element_pb2 import Element as ElementProto
 from streamlit.proto.Spinner_pb2 import Spinner as SpinnerProto
-from streamlit.runtime.scriptrunner import add_script_run_ctx, enqueue_message
+from streamlit.runtime.scriptrunner import enqueue_message
 from streamlit.string_util import clean_text
 
 if TYPE_CHECKING:
@@ -129,14 +130,11 @@ class SpinnerMixin:
                         # Ignore the DeltaGenerator conveniences because Transients are special
                         enqueue_message(create_transient())
 
-            timer = threading.Timer(DELAY_SECS, set_message)
-            add_script_run_ctx(timer)
-            timer.start()
+            # Stlite: Since threading does not work on Pyodide, we use asyncio instead.
+            asyncio.get_event_loop().call_later(DELAY_SECS, set_message)
             # Yield control back to the context.
             yield
         finally:
-            if timer:
-                timer.cancel()
             with display_message_lock:
                 display_message = False
 

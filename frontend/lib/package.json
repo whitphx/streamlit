@@ -70,6 +70,7 @@
     "native-file-system-adapter": "^3.0.0",
     "node-emoji": "^1.11.0",
     "numbro": "^2.3.6",
+    "parquet-wasm": "^0.4.0",
     "plotly.js": "^2.26.1",
     "protobufjs": "^7.2.4",
     "query-string": "^8.1.0",

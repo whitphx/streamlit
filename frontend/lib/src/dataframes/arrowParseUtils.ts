@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +31,7 @@ import {
 } from "apache-arrow"
 import range from "lodash/range"
 import unzip from "lodash/unzip"
+import wasmInit, { readParquet } from "parquet-wasm"
 
 import { isNullOrUndefined, notNullOrUndefined } from "~lib/util/utils"
 
@@ -41,6 +43,12 @@ import {
   PandasRangeIndexType,
   PandasSchema,
 } from "./arrowTypeUtils"
+
+// Stlite: Use parquet to bypass the Arrow implementation which is unavailable in the Wasm Python environment.
+// See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
+// HACK: `wasmInit()` is an async initializer so there is no guarantee that the `parquet-wasm` methods are
+// available when it's called in the `Quiver` class's constructor, but it seems to work fine in practice.
+wasmInit()
 
 /**
  * Index data value.
@@ -351,7 +359,9 @@ export function parseArrowIpcBytes(
   // Load arrow table object from Arrow IPC bytes.
   // The table contains all the cell data, the arrow schema
   // and the pandas schema (if processed through Pandas).
-  const table = tableFromIPC(ipcBytes)
+  const table = tableFromIPC(
+    ipcBytes ? readParquet(ipcBytes).intoIPCStream() : ipcBytes
+  )
 
   // The arrow schema contains type information for all columns
   // that are part of the table. This doesn't include range indices

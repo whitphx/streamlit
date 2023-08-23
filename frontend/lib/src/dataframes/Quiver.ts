@@ -44,6 +44,27 @@ import {
   sameIndexTypes,
   Type,
 } from "./arrowTypeUtils"
+
+import type { readParquet as readParquetType } from "parquet-wasm"
+// Stlite: Use parquet to bypass the Arrow implementation which is unavailable in the Wasm Python environment.
+// See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
+// NOTE: Async import is necessary for the `parquet-wasm` package to work.
+// If it's imported statically, the following error will be thrown when `readParquet` is called:
+// `TypeError: Cannot read properties of undefined (reading '__wbindgen_add_to_stack_pointer')`
+// Ref: https://github.com/kylebarron/parquet-wasm/issues/27
+// HACK: Strictly speaking, there is no guarantee that the `readParquet` function
+// async-imported in the following code will be ready when it's called in the `Quiver` class's constructor,
+// but it seems to work fine in practice.
+let readParquet: typeof readParquetType | undefined = undefined
+setTimeout(() =>
+  // `setTimeout()` is required for this lazy loading to work in the mountable package
+  // where `__webpack_public_path__` is set at runtime, as this `setTimeout()` ensures that
+  // this `import()` is run after `__webpack_public_path__` is patched.
+  import("parquet-wasm").then(parquet => {
+    readParquet = parquet.readParquet
+  })
+)
+
 /**
  * A row-major grid of DataFrame index header values.
  */
@@ -265,7 +286,7 @@ export class Quiver {
   private readonly _styler?: Styler
 
   constructor(element: IArrow) {
-    const table = tableFromIPC(element.data)
+    const table = tableFromIPC(element.data ? readParquet!(element.data) : element.data)
     const schema = Quiver.parseSchema(table)
     const rawColumns = Quiver.getRawColumns(schema)
     const fields = Quiver.parseFields(table.schema)

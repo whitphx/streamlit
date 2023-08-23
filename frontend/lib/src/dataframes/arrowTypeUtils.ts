@@ -79,7 +79,9 @@ export function isRangeIndex(
 export function getTypeName(type: Type): IndexTypeName | string {
   // For `PeriodType` and `IntervalType` types are kept in `numpy_type`,
   // for the rest of the indexes in `pandas_type`.
-  return type.pandas_type === "object" ? type.numpy_type : type.pandas_type
+  const typeName =
+    type.pandas_type === "object" ? type.numpy_type : type.pandas_type
+  return typeName.toLowerCase().trim()
 }
 
 /** True if both arrays contain the same data types in the same order. */

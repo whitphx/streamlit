@@ -170,9 +170,11 @@ export function getPandasTypeName(type: ArrowType): string | undefined {
   }
   // For `PeriodType` and `IntervalType` types are kept in `numpy_type`,
   // for the rest of the indexes in `pandas_type`.
-  return type.pandasType.pandas_type === "object"
-    ? type.pandasType.numpy_type
-    : type.pandasType.pandas_type
+  const typeName =
+    type.pandasType.pandas_type === "object"
+      ? type.pandasType.numpy_type
+      : type.pandasType.pandas_type
+  return typeName.toLowerCase().trim()
 }
 
 /** Returns the timezone of the arrow type metadata. */

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -782,7 +783,7 @@ class DataEditorMixin:
         """
         # Lazy-loaded import
         import pandas as pd
-        import pyarrow as pa
+        from pandas.api.types import infer_dtype, is_categorical_dtype
 
         key = to_key(key)
 
@@ -823,8 +824,61 @@ class DataEditorMixin:
         # Convert the user provided column config into the frontend compatible format:
         column_config_mapping = process_config_mapping(column_config)
 
+        # Stlite: Fix non-string column names (not supported by fastparquet):
+        if infer_dtype(data_df.columns) != "string":
+            data_df.columns = data_df.columns.astype("string")
+
         # Deactivate editing for columns that are not compatible with arrow
         for column_name, column_data in data_df.items():
+            # Stlite: Configure column types for some aspects
+            # that are not working out of the box with the parquet serialization.
+            if column_name not in column_config_mapping:
+                if is_categorical_dtype(column_data.dtype):
+                    update_column_config(
+                        column_config_mapping,
+                        column_name,
+                        {
+                            "type_config": {
+                                "type": "selectbox",
+                                "options": column_data.cat.categories.tolist(),
+                            },
+                        },
+                    )
+                if column_data.dtype == "object":
+                    inferred_type = infer_dtype(column_data, skipna=True)
+                    if inferred_type in ["string", "empty"]:
+                        update_column_config(
+                            column_config_mapping,
+                            column_name,
+                            {"type_config": {"type": "text"}},
+                        )
+                    elif inferred_type == "boolean":
+                        update_column_config(
+                            column_config_mapping,
+                            column_name,
+                            {"type_config": {"type": "checkbox"}},
+                        )
+                    elif inferred_type == "date":
+                        data_df[column_name] = pd.to_datetime(
+                            column_data.astype("string"), errors="coerce"
+                        )
+                        column_data = data_df[column_name]
+                        update_column_config(
+                            column_config_mapping,
+                            column_name,
+                            {"type_config": {"type": "date"}},
+                        )
+                        continue
+                    elif inferred_type == "time":
+                        data_df[column_name] = pd.to_datetime(
+                            column_data.astype("string"), errors="coerce"
+                        )
+                        column_data = data_df[column_name]
+                        update_column_config(
+                            column_config_mapping,
+                            column_name,
+                            {"type_config": {"type": "time"}},
+                        )
             if dataframe_util.is_colum_type_arrow_incompatible(column_data):
                 update_column_config(
                     column_config_mapping, column_name, {"disabled": True}
@@ -865,20 +919,17 @@ class DataEditorMixin:
             for column in disabled:
                 update_column_config(column_config_mapping, column, {"disabled": True})
 
-        # Convert the dataframe to an arrow table which is used as the main
-        # serialization format for sending the data to the frontend.
-        # We also utilize the arrow schema to determine the data kinds of every column.
-        arrow_table = pa.Table.from_pandas(data_df)
-
         # Determine the dataframe schema which is required for parsing edited values
         # and for checking type compatibilities.
-        dataframe_schema = determine_dataframe_schema(data_df, arrow_table.schema)
+        # Stlite: arrow_table.schema can't be used as Arrow is not available.
+        dataframe_schema = determine_dataframe_schema(data_df, None)
 
         # Check if all configured column types are compatible with the underlying data.
         # Throws an exception if any of the configured types are incompatible.
         _check_type_compatibilities(data_df, column_config_mapping, dataframe_schema)
 
-        arrow_bytes = dataframe_util.convert_arrow_table_to_arrow_bytes(arrow_table)
+        # Stlite: Don't use Arrow for conversion:
+        arrow_bytes = dataframe_util.convert_pandas_df_to_arrow_bytes(data_df)
 
         # We want to do this as early as possible to avoid introducing nondeterminism,
         # but it isn't clear how much processing is needed to have the data in a

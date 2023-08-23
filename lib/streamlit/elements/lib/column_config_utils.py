@@ -361,7 +361,7 @@ def _determine_data_kind(
 
 
 def determine_dataframe_schema(
-    data_df: DataFrame, arrow_schema: pa.Schema
+    data_df: DataFrame, arrow_schema: pa.Schema | None
 ) -> DataframeSchema:
     """Determine the schema of a dataframe.
 
@@ -390,7 +390,7 @@ def determine_dataframe_schema(
     for i, column in enumerate(data_df.items()):
         column_name, column_data = column
         dataframe_schema[column_name] = _determine_data_kind(
-            column_data, arrow_schema.field(i)
+            column_data, arrow_schema.field(i) if arrow_schema else None
         )
     return dataframe_schema
 
@@ -490,10 +490,65 @@ def apply_data_specific_configs(
         Whether to check if the data is compatible with arrow.
     """
     import pandas as pd
+    from pandas.api.types import infer_dtype, is_categorical_dtype
 
     # Deactivate editing for columns that are not compatible with arrow
     if check_arrow_compatibility:
+        # Stlite: Fix non-string column names (not supported by fastparquet):
+        if infer_dtype(data_df.columns) != "string":
+            data_df.columns = data_df.columns.astype("string")
+
         for column_name, column_data in data_df.items():
+            # Stlite: Configure column types for some aspects
+            # that are not working out of the box with the parquet serialization.
+            if column_name not in columns_config:
+                if is_categorical_dtype(column_data.dtype):
+                    update_column_config(
+                        columns_config,
+                        column_name,
+                        {
+                            "type_config": {
+                                "type": "selectbox",
+                                "options": column_data.cat.categories.tolist(),
+                            },
+                        },
+                    )
+                if column_data.dtype == "object":
+                    inferred_type = infer_dtype(column_data, skipna=True)
+                    if inferred_type in ["string", "empty"]:
+                        update_column_config(
+                            columns_config,
+                            column_name,
+                            {"type_config": {"type": "text"}},
+                        )
+                    elif inferred_type == "boolean":
+                        update_column_config(
+                            columns_config,
+                            column_name,
+                            {"type_config": {"type": "checkbox"}},
+                        )
+                    elif inferred_type == "date":
+                        data_df[column_name] = pd.to_datetime(
+                            column_data.astype("string"), errors="coerce"
+                        )
+                        column_data = data_df[column_name]
+                        update_column_config(
+                            columns_config,
+                            column_name,
+                            {"type_config": {"type": "date"}},
+                        )
+                        continue
+                    elif inferred_type == "time":
+                        data_df[column_name] = pd.to_datetime(
+                            column_data.astype("string"), errors="coerce"
+                        )
+                        column_data = data_df[column_name]
+                        update_column_config(
+                            columns_config,
+                            column_name,
+                            {"type_config": {"type": "time"}},
+                        )
+
             if is_colum_type_arrow_incompatible(column_data):
                 update_column_config(columns_config, column_name, {"disabled": True})
                 # Convert incompatible type to string

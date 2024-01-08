@@ -2,10 +2,6 @@
   "name": "streamlit",
   "version": "1.41.0",
   "private": true,
-  "workspaces": [
-    "app",
-    "lib"
-  ],
   "scripts": {
     "postinstall": "patch-package",
     "start": "yarn workspace @streamlit/app start",

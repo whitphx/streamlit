@@ -138,8 +138,12 @@ export class FileUploadClient {
           body,
           headers: { ...encoder.headers },
         })
-        .then(_response => {
-          return
+        .then(response => {
+          if (Math.floor(response.statusCode / 100) !== 2) {
+            throw new Error(
+              `Unexpected status code ${response.statusCode} when uploading file.`
+            )
+          }
         })
         .finally(() => this.offsetPendingRequestCount(widget.formId, -1))
     })
@@ -171,8 +175,12 @@ export class FileUploadClient {
           body,
           headers: { ...encoder.headers },
         })
-        .then(_response => {
-          return
+        .then(response => {
+          if (Math.floor(response.statusCode / 100) !== 2) {
+            throw new Error(
+              `Unexpected status code ${response.statusCode} when uploading file.`
+            )
+          }
         })
     })
   }

@@ -47,8 +47,8 @@ INSTALL_REQUIRES = [
     # doesn't tend to break the API on major version upgrades, so we don't put an
     # upper bound on it.
     # "pyarrow>=7.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
-    "requests>=2.27, <3",
-    "rich>=10.14.0, <14",
+    # "requests>=2.27, <3", # HACK: For stlite, comment out as it's not Pyodide-compatible
+    # "rich>=10.14.0, <14", # HACK: For stlite, comment out as rich is not really needed for stlite
     "tenacity>=8.1.0, <9",
     "toml>=0.10.1, <2",
     "typing-extensions>=4.3.0, <5",
@@ -73,7 +73,7 @@ if not os.getenv("SNOWPARK_CONDA_BUILD"):
     INSTALL_REQUIRES.extend(SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES)
 
 # stlite: See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
-INSTALL_REQUIRES.extend(["fastparquet"])
+INSTALL_REQUIRES.extend(["fastparquet", "pyodide-http"])
 
 EXTRA_REQUIRES = {
     "snowflake": [

@@ -150,12 +150,31 @@ export class FileUploadClient {
    * @param fileUrl: the URL of the file to delete.
    */
   public deleteFile(fileUrl: string): Promise<void> {
-    return this.endpoints.deleteFileAtURL
-      ? this.endpoints.deleteFileAtURL(
-          fileUrl,
-          this.sessionInfo.current.sessionId
-        )
-      : Promise.resolve()
+    // stlite Modification: Use form upload
+    const form = new FormData()
+    form.append("sessionId", this.sessionInfo.current.sessionId)
+
+    const encoder = new FormDataEncoder(form as unknown as FormDataLike)
+    const bodyBlob = new Blob(encoder as unknown as BufferSource[], {
+      type: encoder.contentType,
+    })
+
+    return bodyBlob.arrayBuffer().then(body => {
+      if (this.kernel == null) {
+        throw new Error("Kernel not ready")
+      }
+
+      return this.kernel
+        .sendHttpRequest({
+          method: "DELETE",
+          path: fileUrl,
+          body,
+          headers: { ...encoder.headers },
+        })
+        .then(_response => {
+          return
+        })
+    })
   }
 
   /**

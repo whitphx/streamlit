@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +24,11 @@ const INITIAL_SLASH_RE = /^\/+/
  * Return the BaseUriParts for either the given url or the global window
  */
 export function parseUriIntoBaseParts(url?: string): URL {
-  const currentUrl = new URL(url ?? window.location.href)
+  // Stlite: If we're running in an iframe, the href might be "about:blank".
+  // In that case, we want to use the current path as the base path.
+  const currentUrl = new URL(
+    window.location.href === "about:blank" ? "" : window.location.href
+  )
 
   currentUrl.pathname = currentUrl.pathname
     .replace(FINAL_SLASH_RE, "")

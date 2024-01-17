@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ast
 import asyncio
 import gc
 import sys
@@ -184,8 +183,8 @@ class ScriptRunner:
         self._execing = False
 
         # This is initialized in start()
+        # Stlite: threading is not supported on Pyodide, use asyncio instead
         self._script_task: Optional[asyncio.Task] = None
-        # self._script_thread: Optional[threading.Thread] = None  # XXX: Stlite: threading is not supported on Pyodide
 
     def __repr__(self) -> str:
         return util.repr_(self)
@@ -219,6 +218,7 @@ class ScriptRunner:
         This must be called only once.
 
         """
+        # Stlite: threading is not supported on Pyodide. Use asyncio instead
         if self._script_task is not None:
             raise Exception("ScriptRunner was already started")
 
@@ -300,7 +300,7 @@ class ScriptRunner:
 
     def _is_in_script_thread(self) -> bool:
         """True if the calling function is running in the script thread"""
-        # return self._script_thread == threading.current_thread()
+        # Stlite: threading is not supported on Pyodide. Use asyncio instead
         return self._script_task == asyncio.current_task()
 
     def _enqueue_forward_msg(self, msg: ForwardMsg) -> None:
@@ -533,6 +533,8 @@ class ScriptRunner:
 
                 ctx.on_script_start()
                 prep_time = timer() - start_time
+
+                # Stlite: asyncio does not support exec() so we use eval() instead
                 if code.co_flags & CO_COROUTINE:
                     # The source code includes top-level awaits, so the compiled code object is a coroutine.
                     await eval(code, module.__dict__)

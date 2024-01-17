@@ -153,35 +153,24 @@ export class FileUploadClient {
    * @param fileUrl: the URL of the file to delete.
    */
   public deleteFile(fileUrl: string): Promise<void> {
-    // stlite Modification: Use form upload
-    const form = new FormData()
-    form.append("sessionId", this.sessionInfo.current.sessionId)
+    if (this.kernel == null) {
+      throw new Error("Kernel not ready")
+    }
 
-    const encoder = new FormDataEncoder(form as unknown as FormDataLike)
-    const bodyBlob = new Blob(encoder as unknown as BufferSource[], {
-      type: encoder.contentType,
-    })
-
-    return bodyBlob.arrayBuffer().then(body => {
-      if (this.kernel == null) {
-        throw new Error("Kernel not ready")
-      }
-
-      return this.kernel
-        .sendHttpRequest({
-          method: "DELETE",
-          path: fileUrl,
-          body,
-          headers: { ...encoder.headers },
-        })
-        .then(response => {
-          if (Math.floor(response.statusCode / 100) !== 2) {
-            throw new Error(
-              `Unexpected status code ${response.statusCode} when uploading file.`
-            )
-          }
-        })
-    })
+    return this.kernel
+      .sendHttpRequest({
+        method: "DELETE",
+        path: fileUrl,
+        body: "",
+        headers: {},
+      })
+      .then(response => {
+        if (Math.floor(response.statusCode / 100) !== 2) {
+          throw new Error(
+            `Unexpected status code ${response.statusCode} when uploading file.`
+          )
+        }
+      })
   }
 
   /**

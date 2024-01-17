@@ -118,7 +118,6 @@ export class FileUploadClient {
 
     // stlite Modification: Use form upload
     const form = new FormData()
-    form.append("sessionId", this.sessionInfo.current.sessionId)
     form.append(file.name, file)
 
     const encoder = new FormDataEncoder(form as unknown as FormDataLike)

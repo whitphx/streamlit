@@ -118,7 +118,6 @@ export class FileUploadClient {
 
     // Stlite: Use form upload
     const form = new FormData()
-    form.append("sessionId", this.sessionInfo.current.sessionId)
     form.append(file.name, file)
 
     const encoder = new FormDataEncoder(form as unknown as FormDataLike)
@@ -138,8 +137,12 @@ export class FileUploadClient {
           body,
           headers: { ...encoder.headers },
         })
-        .then(_response => {
-          return
+        .then(response => {
+          if (Math.floor(response.statusCode / 100) !== 2) {
+            throw new Error(
+              `Unexpected status code ${response.statusCode} when uploading file.`
+            )
+          }
         })
         .finally(() => this.offsetPendingRequestCount(widget.formId, -1))
     })
@@ -150,12 +153,24 @@ export class FileUploadClient {
    * @param fileUrl: the URL of the file to delete.
    */
   public deleteFile(fileUrl: string): Promise<void> {
-    return this.endpoints.deleteFileAtURL
-      ? this.endpoints.deleteFileAtURL(
-          fileUrl,
-          this.sessionInfo.current.sessionId
-        )
-      : Promise.resolve()
+    if (this.kernel == null) {
+      throw new Error("Kernel not ready")
+    }
+
+    return this.kernel
+      .sendHttpRequest({
+        method: "DELETE",
+        path: fileUrl,
+        body: "",
+        headers: {},
+      })
+      .then(response => {
+        if (Math.floor(response.statusCode / 100) !== 2) {
+          throw new Error(
+            `Unexpected status code ${response.statusCode} when uploading file.`
+          )
+        }
+      })
   }
 
   /**

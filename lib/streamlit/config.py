@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1370,9 +1371,9 @@ def _update_config_with_toml(raw_toml: str, where_defined: str) -> None:
         Tells the config system where this was set.
 
     """
-    import toml
+    import tomllib
 
-    parsed_config_file = toml.loads(raw_toml)
+    parsed_config_file = tomllib.loads(raw_toml)
 
     def process_section(section_path: str, section_data: dict[str, Any]) -> None:
         """Recursively process nested sections of the config file.

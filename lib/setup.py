@@ -48,7 +48,7 @@ INSTALL_REQUIRES = [
     # "pyarrow>=7.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
     # "requests>=2.27, <3", # HACK: For stlite, comment out as it's not Pyodide-compatible
     "tenacity>=8.1.0, <10",
-    "toml>=0.10.1, <2",
+    # "toml>=0.10.1, <2", # HACK: For stlite, comment out as it's not needed for stlite
     "typing-extensions>=4.4.0, <5",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.

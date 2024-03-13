@@ -59,7 +59,7 @@ dependencies = [
   "altair>=4.0,<7,!=5.4.0,!=5.4.1",
   "blinker>=1.5.0,<2",
   "cachetools>=5.5,<8",
-  "click>=7.0,<9",
+  # "click>=7.0,<9", # HACK: For stlite, comment out as it's not needed for stlite
   # "gitpython>=3.0.7,<4,!=3.1.19", # HACK: For stlite, excluded (was SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES in setup.py)
   "numpy>=1.23,<3",
   # The "packaging" package isn't version-capped because they use calendar-based
@@ -154,7 +154,7 @@ zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
+exclude = ["tests", "tests.*", "streamlit.web", "streamlit.web.*"]
 
 # PEP 561: https://mypy.readthedocs.io/en/stable/installed_packages.html
 [tool.setuptools.package-data]

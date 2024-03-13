@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -145,11 +146,11 @@ class Credentials:
             _LOGGER.error("Credentials already loaded. Not rereading file.")
             return
 
-        import toml
+        import tomllib
 
         try:
-            with open(self._conf_file, encoding="utf-8") as f:
-                data = toml.load(f).get("general")
+            with open(self._conf_file, "rb") as f:
+                data = tomllib.load(f).get("general")
             if data is None:
                 raise RuntimeError  # noqa: TRY301
             self.activation = _verify_email(data.get("email"))

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -275,10 +276,10 @@ class Secrets(Mapping[str, Any]):
             return {}, False
 
         try:
-            import toml
+            import tomllib
 
-            secrets.update(toml.loads(secrets_file_str))
-        except (TypeError, toml.TomlDecodeError) as ex:
+            secrets.update(tomllib.loads(secrets_file_str))
+        except (TypeError, tomllib.TOMLDecodeError) as ex:
             error_msg = (
                 secret_error_messages_singleton.get_error_parsing_file_at_path_message(
                     path, ex

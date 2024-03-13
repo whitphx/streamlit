@@ -50,7 +50,7 @@ INSTALL_REQUIRES = [
     "tenacity>=8.1.0, <10",
     # Starting from Python 3.11, Python has built in support for reading TOML files.
     # Let's make sure to remove this "toml" library when we stop supporting Python 3.10.
-    "toml>=0.10.1, <2",
+    # "toml>=0.10.1, <2", # HACK: For stlite, comment out as it's not needed for stlite
     "typing-extensions>=4.4.0, <5",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.
     # Without watchdog, we fallback to a polling file watcher to check for app changes.

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1360,9 +1361,9 @@ def _update_config_with_toml(raw_toml: str, where_defined: str) -> None:
 
     """
     try:
-        import toml
+        import tomllib
 
-        parsed_config_file = toml.loads(raw_toml)
+        parsed_config_file = tomllib.loads(raw_toml)
     except Exception:
         # Catching any parsing exception to prevent this from breaking our
         # config change watcher logic.

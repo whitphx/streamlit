@@ -38,7 +38,7 @@ INSTALL_REQUIRES = [
     "altair>=4.0, <6, !=5.4.0, !=5.4.1",
     "blinker>=1.5.0, <2",
     "cachetools>=4.0, <7",
-    "click>=7.0, <9",
+    # "click>=7.0, <9", # HACK: For stlite, comment out as it's not needed for stlite
     "numpy>=1.23, <3",
     "packaging>=20, <26",
     # Pandas <1.4 has a bug related to deleting columns in a DataFrame changing
@@ -178,7 +178,9 @@ setup(
     python_requires=">=3.9, !=3.9.7",
     # PEP 561: https://mypy.readthedocs.io/en/stable/installed_packages.html
     package_data={"streamlit": ["py.typed", "hello/**/*.py"]},
-    packages=find_packages(exclude=["tests", "tests.*"]),
+    packages=find_packages(
+        exclude=["tests", "tests.*", "streamlit.web", "streamlit.web.*"]
+    ),
     # Requirements
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRA_REQUIRES,

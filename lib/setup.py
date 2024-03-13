@@ -32,7 +32,7 @@ INSTALL_REQUIRES = [
     "altair>=4.0, <6",
     "blinker>=1.0.0, <2",
     "cachetools>=4.0, <6",
-    "click>=7.0, <9",
+    # "click>=7.0, <9", # HACK: For stlite, comment out as it's not needed for stlite
     "numpy>=1.19.3, <2",
     "packaging>=16.8, <24",
     # Lowest version with available wheel for 3.7 + amd64 + linux
@@ -151,7 +151,9 @@ setup(
     python_requires=">=3.8, !=3.9.7",
     # PEP 561: https://mypy.readthedocs.io/en/stable/installed_packages.html
     package_data={"streamlit": ["py.typed", "hello/**/*.py"]},
-    packages=find_packages(exclude=["tests", "tests.*"]),
+    packages=find_packages(
+        exclude=["tests", "tests.*", "streamlit.web", "streamlit.web.*"]
+    ),
     # Requirements
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRA_REQUIRES,

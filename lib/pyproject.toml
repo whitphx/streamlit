@@ -80,7 +80,7 @@ dependencies = [
   "tenacity>=8.1.0,<10",
   # Starting from Python 3.11, Python has built in support for reading TOML files.
   # Let's make sure to remove this "toml" library when we stop supporting Python 3.10.
-  "toml>=0.10.1,<2",
+  # "toml>=0.10.1,<2", # HACK: For stlite, comment out as it's not needed for stlite
   # Tornado 6.0.3 was the current version when Python 3.8 was released (Oct 14, 2019).
   # Tornado 6.5.0 is skipped due to a bug with Unicode characters in the filename.
   # See https://github.com/tornadoweb/tornado/commit/62c276434dc5b13e10336666348408bf8c062391

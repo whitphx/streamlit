@@ -81,6 +81,17 @@ class ScriptRunnerEvent(Enum):
     ENQUEUE_FORWARD_MSG = "ENQUEUE_FORWARD_MSG"
 
 
+LAZY_INSTALL_LIST = {  # map of importable module name to PyPI package name
+    # Now only supports the packages that some of Streamlit core features depend on but excluded from its dependency list for faster installation.
+    "altair": "altair",
+    "pillow": "pillow",
+    "tenacity": "tenacity",
+}
+lazy_install_tried_modules = (
+    set()
+)  # Holds the names of modules we've tried to lazy-install already to avoid trying again and resulting in an infinite loop
+
+
 """
 Note [Threading]
 There are two kinds of threads in Streamlit, the main thread and script threads.
@@ -561,6 +572,29 @@ class ScriptRunner:
                 premature_stop = True
 
             except Exception as ex:
+                if isinstance(ex, ImportError):
+                    # Stlite: Lazy-install
+                    _LOGGER.debug("ImportError: %s", ex)
+                    missed_module_name = ex.name
+                    if (
+                        missed_module_name not in lazy_install_tried_modules
+                        and missed_module_name in LAZY_INSTALL_LIST
+                    ):
+                        package_name = LAZY_INSTALL_LIST[missed_module_name]
+                        lazy_install_tried_modules.add(missed_module_name)
+                        _LOGGER.debug(
+                            "Attempting to install missing module: %s", package_name
+                        )
+                        try:
+                            import micropip
+
+                            await micropip.install(package_name)
+                            continue
+                        except Exception as ex:
+                            _LOGGER.debug(
+                                "Failed to lazy-install missing module: %s", ex
+                            )
+
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = False
                 uncaught_exception = ex
                 handle_uncaught_app_exception(uncaught_exception)

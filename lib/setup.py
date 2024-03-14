@@ -29,7 +29,7 @@ VERSION = "1.32.2"  # PEP-440
 # - Always include the lower bound as >= VERSION, to keep testing min versions easy
 # - And include an upper bound that's < NEXT_MAJOR_VERSION
 INSTALL_REQUIRES = [
-    "altair>=4.0, <6",
+    # "altair>=4.0, <6", # HACK: For stlite, comment out as it will be lazy-installed when needed. See script_runner.py
     "blinker>=1.0.0, <2",
     "cachetools>=4.0, <6",
     # "click>=7.0, <9", # HACK: For stlite, comment out as it's not needed for stlite
@@ -37,7 +37,7 @@ INSTALL_REQUIRES = [
     "packaging>=16.8, <24",
     # Lowest version with available wheel for 3.7 + amd64 + linux
     "pandas>=1.3.0, <3",
-    "pillow>=7.1.0, <11",
+    # "pillow>=7.1.0, <11", # HACK: For stlite, comment out as it will be lazy-installed when needed. See script_runner.py
     # Python protobuf 4.21 (the first 4.x version) is compatible with protobufs
     # generated from `protoc` >= 3.20. (`protoc` is installed separately from the Python
     # protobuf package, so this pin doesn't actually enforce a `protoc` minimum version.
@@ -49,7 +49,7 @@ INSTALL_REQUIRES = [
     # "pyarrow>=7.0", # HACK: For stlite, comment out as it's not Pyodide-compatible
     # "requests>=2.27, <3", # HACK: For stlite, comment out as it's not Pyodide-compatible
     # "rich>=10.14.0, <14", # HACK: For stlite, comment out as rich is not really needed for stlite
-    "tenacity>=8.1.0, <9",
+    # "tenacity>=8.1.0, <9", # HACK: For stlite, comment out as it will be lazy-installed when needed. See script_runner.py
     # "toml>=0.10.1, <2", # HACK: For stlite, comment out as it's not needed for stlite
     "typing-extensions>=4.3.0, <5",
     # Don't require watchdog on MacOS, since it'll fail without xcode tools.

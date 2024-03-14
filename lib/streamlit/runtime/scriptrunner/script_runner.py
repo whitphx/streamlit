@@ -89,7 +89,7 @@ LAZY_INSTALL_LIST = {  # map of importable module name to PyPI package name
 }
 lazy_install_tried_modules = (
     set()
-)  # Holds the names of modules we've tried to lazy-install already to avoid trying again and resulting in an infinite loop
+)  # Holds the module names we've tried to lazy-install to avoid trying again and resulting in an infinite loop.
 
 
 """

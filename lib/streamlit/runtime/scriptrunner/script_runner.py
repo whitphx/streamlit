@@ -589,7 +589,7 @@ class ScriptRunner:
                     ):
                         package_name = LAZY_INSTALL_LIST[missed_module_name]
                         lazy_install_tried_modules.add(missed_module_name)
-                        _LOGGER.debug(
+                        _LOGGER.info(
                             "Attempting to install missing module: %s", package_name
                         )
                         try:
@@ -597,9 +597,10 @@ class ScriptRunner:
 
                             await micropip.install(package_name)
                             continue
-                        except Exception as ex:
-                            _LOGGER.debug(
-                                "Failed to lazy-install missing module: %s", ex
+                        except Exception as micropip_err:
+                            _LOGGER.warning(
+                                "Failed to lazy-install missing module: %s",
+                                micropip_err,
                             )
 
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = False

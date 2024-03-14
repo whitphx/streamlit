@@ -37,7 +37,7 @@ INSTALL_REQUIRES = [
     "packaging>=16.8, <24",
     # Lowest version with available wheel for 3.7 + amd64 + linux
     "pandas>=1.3.0, <3",
-    # "pillow>=7.1.0, <11", # HACK: For stlite, comment out as it will be lazy-installed when needed. See script_runner.py
+    "pillow>=7.1.0, <11",
     # Python protobuf 4.21 (the first 4.x version) is compatible with protobufs
     # generated from `protoc` >= 3.20. (`protoc` is installed separately from the Python
     # protobuf package, so this pin doesn't actually enforce a `protoc` minimum version.

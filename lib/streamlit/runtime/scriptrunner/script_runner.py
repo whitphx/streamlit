@@ -83,8 +83,8 @@ class ScriptRunnerEvent(Enum):
 
 LAZY_INSTALL_LIST = {  # map of importable module name to PyPI package name
     # Now only supports the packages that some of Streamlit core features depend on but excluded from its dependency list for faster installation.
+    # PIL (pillow) is not supported now. See the note in the lazy-install block in the _run_script method.
     "altair": "altair",
-    "pillow": "pillow",
     "tenacity": "tenacity",
 }
 lazy_install_tried_modules = (
@@ -574,6 +574,13 @@ class ScriptRunner:
             except Exception as ex:
                 if isinstance(ex, ImportError):
                     # Stlite: Lazy-install
+                    # NOTE: This lazy-install mechanism doesn't catch the import errors of
+                    #       Pyodide-distributed packages such as PIL (pillow) because ModuleNotFoundError
+                    #       will be raised when trying to import instead of ImportError.
+                    #       Moreover, that ModuleNotFoundError object won't have the `name` attribute,
+                    #       so we can't get the missed module name from it in a straightforward way.
+                    #       Then, for now, we gave up supporting it as the concered package is only PIL
+                    #       and unshipping and lazy-installing it doesn't introduce so much benefit.
                     _LOGGER.debug("ImportError: %s", ex)
                     missed_module_name = ex.name
                     if (

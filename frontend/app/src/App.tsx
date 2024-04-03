@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
-import { ConnectionManager, StliteKernel, StliteKernelContext } from "@stlite/kernel"
+import { StliteKernel, StliteKernelContext } from "@stlite/kernel"
 
 // Other local imports.
 import { AppContext } from "@streamlit/app/src/components/AppContext"
@@ -35,7 +36,7 @@ import {
   DialogType,
   StreamlitDialog,
 } from "@streamlit/app/src/components/StreamlitDialog"
-// Stlite: we use a replacement implementation:
+import { ConnectionManager } from "@streamlit/app/src/connection/ConnectionManager"
 import { ConnectionState } from "@streamlit/app/src/connection/ConnectionState"
 import { SessionEventDispatcher } from "@streamlit/app/src/SessionEventDispatcher"
 import {

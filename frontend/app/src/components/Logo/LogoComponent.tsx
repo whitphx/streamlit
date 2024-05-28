@@ -25,6 +25,8 @@ import {
 import { StreamlitEndpoints } from "@streamlit/connection"
 import { Logo } from "@streamlit/protobuf"
 
+import { useStliteResolvedLogo } from "@stlite/kernel"
+
 const LOG = getLogger("LogoComponent")
 
 export interface LogoComponentProps {
@@ -45,6 +47,8 @@ const LogoComponent = ({
   componentName = "Logo",
   dataTestId = "stLogo",
 }: LogoComponentProps): ReactElement | null => {
+  appLogo = useStliteResolvedLogo(appLogo)
+
   if (!appLogo) {
     return null
   }

@@ -31,6 +31,8 @@ import {
 } from "@streamlit/lib"
 import { Logo } from "@streamlit/protobuf"
 
+import { useStliteResolvedLogo } from "@stlite/kernel/react"
+
 const LOG = getLogger("LogoComponent")
 
 export interface LogoComponentProps {
@@ -70,6 +72,7 @@ const LogoComponent = ({
     }
   }, [homePage, onPageChange, isOnHomePage])
 
+  appLogo = useStliteResolvedLogo(appLogo)
   if (!appLogo) {
     return null
   }

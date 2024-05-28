@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +58,7 @@ import {
   StyledSidebarUserContent,
 } from "./styled-components"
 import SidebarNav from "./SidebarNav"
+import { useStliteResolvedLogo } from "@stlite/kernel"
 
 export interface SidebarProps {
   endpoints: StreamlitEndpoints
@@ -97,7 +99,7 @@ function headerDecorationVisible(): boolean {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  appLogo,
+  appLogo: rawAppLogo,
   endpoints,
   appPages,
   chevronDownshift,
@@ -110,6 +112,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   expandSidebarNav,
   navSections,
 }) => {
+  const appLogo = useStliteResolvedLogo(rawAppLogo)
+
   const theme: EmotionTheme = useTheme()
   const mediumBreakpointPx = calculateMaxBreakpoint(theme.breakpoints.md)
   const sideBarInitiallyCollapsed = shouldCollapse(

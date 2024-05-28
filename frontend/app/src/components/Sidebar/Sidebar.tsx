@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +64,7 @@ import {
   StyledSidebarUserContent,
 } from "./styled-components"
 import SidebarNav from "./SidebarNav"
+import { useStliteResolvedLogo } from "@stlite/kernel"
 
 export interface SidebarProps {
   endpoints: StreamlitEndpoints
@@ -127,7 +129,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   )
 
   const { activeTheme } = React.useContext(LibContext)
-  const { hideSidebarNav, appPages, appLogo } = useAppContext()
+  const { hideSidebarNav, appPages, appLogo: rawAppLogo } = useAppContext()
+  const appLogo = useStliteResolvedLogo(rawAppLogo)
 
   useEffect(() => {
     setCollapsedSidebar(

@@ -34,6 +34,8 @@ import {
 } from "@streamlit/lib"
 import { Logo } from "@streamlit/protobuf"
 
+import { useStliteResolvedLogo } from "@stlite/kernel/react"
+
 const LOG = getLogger("LogoComponent")
 
 // Map logo size to DynamicIcon size for consistent scaling
@@ -80,6 +82,7 @@ const LogoComponent = ({
     }
   }, [homePage, onPageChange, isOnHomePage])
 
+  appLogo = useStliteResolvedLogo(appLogo)
   if (!appLogo) {
     return null
   }

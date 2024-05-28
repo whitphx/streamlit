@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +57,7 @@ import {
   StyledBottomBlockContainer,
 } from "./styled-components"
 import ScrollToBottomContainer from "./ScrollToBottomContainer"
+import { useStliteResolvedLogo } from "@stlite/kernel"
 
 export interface AppViewProps {
   elements: AppRoot
@@ -177,6 +179,8 @@ function AppView(props: AppViewProps): ReactElement {
     removeScriptFinishedHandler,
   ])
 
+  const resolvedAppLogo = useStliteResolvedLogo(appLogo)
+
   const renderLogo = (appLogo: Logo): ReactElement => {
     const displayImage = appLogo.iconImage ? appLogo.iconImage : appLogo.image
     const source = endpoints.buildMediaURL(displayImage)
@@ -239,13 +243,13 @@ function AppView(props: AppViewProps): ReactElement {
           </StyledSidebarBlockContainer>
         </ThemedSidebar>
       )}
-      {!showSidebar && appLogo && (
+      {!showSidebar && resolvedAppLogo && (
         <StyledSidebarOpenContainer
           chevronDownshift={sidebarChevronDownshift}
           isCollapsed={true}
           data-testid="collapsedControl"
         >
-          {renderLogo(appLogo)}
+          {renderLogo(resolvedAppLogo)}
         </StyledSidebarOpenContainer>
       )}
       <Component

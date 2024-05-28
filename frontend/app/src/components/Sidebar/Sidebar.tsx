@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +49,7 @@ import {
   StyledLogoLink,
 } from "./styled-components"
 import SidebarNav from "./SidebarNav"
+import { StliteKernelContext, resolveLogo } from "@stlite/kernel"
 
 export interface SidebarProps {
   endpoints: StreamlitEndpoints
@@ -70,6 +72,8 @@ interface State {
 
   // When hovering the nav
   hideScrollbar: boolean
+
+  resolvedAppLogo: Logo | null
 }
 
 class Sidebar extends PureComponent<SidebarProps, State> {
@@ -83,6 +87,9 @@ class Sidebar extends PureComponent<SidebarProps, State> {
   }
 
   private sidebarRef = React.createRef<HTMLDivElement>()
+
+  static contextType = StliteKernelContext
+  context: React.ContextType<typeof StliteKernelContext>
 
   constructor(props: SidebarProps) {
     super(props)
@@ -99,6 +106,30 @@ class Sidebar extends PureComponent<SidebarProps, State> {
       sidebarWidth: cachedSidebarWidth || Sidebar.minWidth,
       lastInnerWidth: window ? window.innerWidth : Infinity,
       hideScrollbar: false,
+      resolvedAppLogo: null,
+    }
+  }
+
+  resolveAppLogo = async (): Promise<void> => {
+    if (this.props.appLogo == null) {
+      if (this.state.resolvedAppLogo) {
+        URL.revokeObjectURL(this.state.resolvedAppLogo.image)
+        URL.revokeObjectURL(this.state.resolvedAppLogo.iconImage)
+      }
+      this.setState({ resolvedAppLogo: null })
+    } else {
+      const kernel = this.context?.kernel
+      if (kernel == null) {
+        throw new Error("Kernel is not set in the context.")
+      }
+
+      resolveLogo(kernel, this.props.appLogo).then(resolvedAppLogo => {
+        if (this.state.resolvedAppLogo) {
+          URL.revokeObjectURL(this.state.resolvedAppLogo.image)
+          URL.revokeObjectURL(this.state.resolvedAppLogo.iconImage)
+        }
+        this.setState({ resolvedAppLogo })
+      })
     }
   }
 
@@ -117,6 +148,10 @@ class Sidebar extends PureComponent<SidebarProps, State> {
           this.mediumBreakpointPx
         ),
       })
+    }
+
+    if (this.props.appLogo !== prevProps.appLogo) {
+      this.resolveAppLogo()
     }
   }
 
@@ -141,6 +176,8 @@ class Sidebar extends PureComponent<SidebarProps, State> {
   componentDidMount(): void {
     window.addEventListener("resize", this.checkMobileOnResize)
     document.addEventListener("mousedown", this.handleClickOutside)
+
+    this.resolveAppLogo()
   }
 
   componentWillUnmount(): void {
@@ -225,7 +262,7 @@ class Sidebar extends PureComponent<SidebarProps, State> {
   }
 
   renderLogo(collapsed: boolean): ReactElement {
-    const { appLogo } = this.props
+    const { resolvedAppLogo: appLogo } = this.state
 
     if (!appLogo) {
       return <StyledNoLogoSpacer data-testid="stLogoSpacer" />

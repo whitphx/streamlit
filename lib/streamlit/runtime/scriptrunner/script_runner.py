@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from enum import Enum
 from inspect import CO_COROUTINE
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Callable, Final
+from typing import TYPE_CHECKING, Coroutine, Callable, Final
 
 from blinker import Signal
 
@@ -56,6 +56,23 @@ if TYPE_CHECKING:
     from streamlit.runtime.fragment import FragmentStorage
 
 _LOGGER: Final = get_logger(__name__)
+
+module_load_fn = None  # Will be injected by the stlite JS code
+lazy_load_tried_imports = set()
+
+def try_auto_import(import_error: ImportError) -> Coroutine | None:
+    if module_load_fn is None:
+        return None
+
+    module_name = import_error.name
+    if module_name is None:
+        return None
+
+    if module_name in lazy_load_tried_imports:
+        return None
+    lazy_load_tried_imports.add(module_name)
+
+    return module_load_fn(module_name)
 
 
 class ScriptRunnerEvent(Enum):
@@ -204,6 +221,8 @@ class ScriptRunner:
         # This is initialized in start()
         # Stlite: threading is not supported on Pyodide, use asyncio instead
         self._script_task: asyncio.Task | None = None
+
+        self._lazy_load_task: asyncio.Task | None = None
 
     def __repr__(self) -> str:
         return util.repr_(self)
@@ -598,6 +617,11 @@ class ScriptRunner:
                                 )
                     else:
                         self._fragment_storage.clear()
+
+                        if self._lazy_load_task:
+                            await self._lazy_load_task
+                            self._lazy_load_task = None
+
                         if code.co_flags & CO_COROUTINE:
                             # The source code includes top-level awaits, so the compiled code object is a coroutine.
                             await eval(code, module.__dict__)
@@ -620,6 +644,16 @@ class ScriptRunner:
                 # This is thrown when the script executes `st.stop()`.
                 # We don't have to do anything here.
                 premature_stop = True
+
+            except ImportError as ex:
+                auto_import_task = asyncio.create_task(try_auto_import(ex))
+                if auto_import_task:
+                    self._lazy_load_task = auto_import_task
+                else:
+                    self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = False
+                    uncaught_exception = ex
+                    handle_uncaught_app_exception(uncaught_exception)
+                    premature_stop = True
 
             except Exception as ex:
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = False

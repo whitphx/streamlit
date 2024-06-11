@@ -66,11 +66,17 @@ from streamlit.runtime.state import (
 from streamlit.source_util import page_sort_key
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from streamlit.runtime.fragment import FragmentStorage
     from streamlit.runtime.scriptrunner.script_cache import ScriptCache
     from streamlit.runtime.uploaded_file_manager import UploadedFileManager
 
 _LOGGER: Final = get_logger(__name__)
+
+moduleAutoLoadPromise: Awaitable | None = (
+    None  # Stlite: May be injected from the JS side so that module auto-loading can be awaited before running the script.
+)
 
 
 class ScriptRunnerEvent(Enum):
@@ -644,6 +650,8 @@ class ScriptRunner:
                                 pass
 
                     else:
+                        if moduleAutoLoadPromise:
+                            await moduleAutoLoadPromise
                         if PagesManager.uses_pages_directory:
                             await _mpa_v1(self._main_script_path)
                         else:

@@ -20,7 +20,7 @@ import threading
 from typing import Any
 
 from streamlit import config
-from streamlit.runtime.scriptrunner import magic
+from streamlit.runtime.scriptrunner import magic, stlite_patch
 from streamlit.source_util import open_python_file
 
 
@@ -71,6 +71,8 @@ class ScriptCache:
 
             if config.get_option("runner.magicEnabled"):
                 filebody = magic.add_magic(filebody, script_path)
+
+            filebody = stlite_patch.patch(filebody, script_path)
 
             bytecode = compile(  # type: ignore
                 filebody,

@@ -80,6 +80,10 @@ if TYPE_CHECKING:
 
 _LOGGER: Final = get_logger(__name__)
 
+moduleAutoLoadPromise: Awaitable | None = (
+    None  # Stlite: May be injected from the JS side so that module auto-loading can be awaited before running the script.
+)
+
 
 class ScriptRunnerEvent(Enum):
     # "Control" events. These are emitted when the ScriptRunner's state changes.
@@ -822,6 +826,9 @@ class ScriptRunner:
                                     ctx.enqueue(stop_msg)
 
                     else:
+                        if moduleAutoLoadPromise:
+                            await moduleAutoLoadPromise
+
                         # Drop wrappers from the previous run before the main
                         # script recreates its outside containers as new DG
                         # objects. Clearing here (rather than after the script

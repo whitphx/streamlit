@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from enum import Enum
 from inspect import CO_COROUTINE
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Callable, Final
+from typing import TYPE_CHECKING, Awaitable, Callable, Final
 
 from blinker import Signal
 
@@ -66,6 +66,8 @@ if TYPE_CHECKING:
     from streamlit.runtime.uploaded_file_manager import UploadedFileManager
 
 _LOGGER: Final = get_logger(__name__)
+
+moduleAutoLoadPromise: Awaitable | None = None  # Stlite: May be injected from the JS side so that module auto-loading can be awaited before running the script.
 
 
 class ScriptRunnerEvent(Enum):
@@ -577,6 +579,8 @@ class ScriptRunner:
                                 pass
 
                     else:
+                        if moduleAutoLoadPromise:
+                            await moduleAutoLoadPromise
                         if code.co_flags & CO_COROUTINE:
                             # The source code includes top-level awaits, so the compiled code object is a coroutine.
                             await eval(code, module.__dict__)

@@ -75,6 +75,10 @@ if TYPE_CHECKING:
 
 _LOGGER: Final = get_logger(__name__)
 
+moduleAutoLoadPromise: Awaitable | None = (
+    None  # Stlite: May be injected from the JS side so that module auto-loading can be awaited before running the script.
+)
+
 
 class ScriptRunnerEvent(Enum):
     # "Control" events. These are emitted when the ScriptRunner's state changes.
@@ -688,6 +692,8 @@ class ScriptRunner:
                                 pass
 
                     else:
+                        if moduleAutoLoadPromise:
+                            await moduleAutoLoadPromise
                         if PagesManager.uses_pages_directory:
                             await _mpa_v1(self._main_script_path)
                         else:

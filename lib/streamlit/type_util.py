@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +27,9 @@ from enum import Enum, EnumMeta, auto
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     Final,
+    Generator,
     Iterable,
     Literal,
     NamedTuple,
@@ -1386,6 +1389,12 @@ def maybe_raise_label_warnings(label: str | None, label_visibility: str | None):
             f"Unsupported label_visibility option '{label_visibility}'. "
             f"Valid values are 'visible', 'hidden' or 'collapsed'."
         )
+
+
+async def generator_to_async(gen: Generator[Any, Any]) -> AsyncGenerator[Any, Any, Any]:
+    """Convert a generator to an async generator."""
+    for item in gen:
+        yield item
 
 
 # The code below is copied from Altair, and slightly modified.

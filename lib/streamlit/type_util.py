@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +26,9 @@ from enum import EnumMeta
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     Final,
+    Generator,
     Iterable,
     Literal,
     NamedTuple,
@@ -417,3 +420,9 @@ def is_version_less_than(v1: str, v2: str) -> bool:
     from packaging import version
 
     return version.parse(v1) < version.parse(v2)
+
+
+async def generator_to_async(gen: Generator[Any, Any]) -> AsyncGenerator[Any, Any, Any]:
+    """Convert a generator to an async generator."""
+    for item in gen:
+        yield item

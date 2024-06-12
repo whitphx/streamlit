@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2025)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +68,7 @@ class StreamingOutput(list[Any]):
 
 class WriteMixin:
     @gather_metrics("write_stream")
-    def write_stream(
+    async def write_stream(
         self,
         stream: Callable[..., Any]
         | Generator[Any, Any, Any]
@@ -173,11 +174,11 @@ class WriteMixin:
             stream = stream()
 
         # If the stream is an async generator, convert it to a sync generator:
-        if inspect.isasyncgen(stream):
-            stream = type_util.async_generator_to_sync(stream)
+        if inspect.isgenerator(stream):
+            stream = type_util.generator_to_async(stream)
 
         try:
-            iter(stream)  # type: ignore
+            aiter(stream)  # type: ignore
         except TypeError as exc:
             raise StreamlitAPIException(
                 f"The provided input (type: {type(stream)}) cannot be iterated. "
@@ -186,7 +187,7 @@ class WriteMixin:
 
         # Iterate through the generator and write each chunk to the app
         # with a type writer effect.
-        for chunk in stream:  # type: ignore
+        async for chunk in stream:  # type: ignore
             if type_util.is_openai_chunk(chunk):
                 # Try to convert OpenAI chat completion chunk to a string:
                 try:
@@ -253,7 +254,9 @@ class WriteMixin:
         return written_content
 
     @gather_metrics("write")
-    def write(self, *args: Any, unsafe_allow_html: bool = False, **kwargs) -> None:
+    async def write(
+        self, *args: Any, unsafe_allow_html: bool = False, **kwargs
+    ) -> None:
         """Displays arguments in the app.
 
         This is the Swiss Army knife of Streamlit commands: it does different
@@ -517,7 +520,7 @@ class WriteMixin:
                 or type_util.is_type(arg, "openai.Stream")
             ):
                 flush_buffer()
-                self.write_stream(arg)
+                await self.write_stream(arg)
             elif isinstance(arg, HELP_TYPES):
                 flush_buffer()
                 self.dg.help(arg)

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -460,3 +461,9 @@ def async_generator_to_sync(
         pass
     finally:
         loop.close()
+
+
+async def generator_to_async(gen: Generator[Any, Any]) -> AsyncGenerator[Any, Any, Any]:
+    """Convert a generator to an async generator."""
+    for item in gen:
+        yield item

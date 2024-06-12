@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import inspect
 import types
@@ -62,7 +63,7 @@ class StreamingOutput(list[Any]):
 
 class WriteMixin:
     @gather_metrics("write_stream")
-    def write_stream(
+    async def write_stream(
         self,
         stream: Callable[..., Any]
         | Generator[Any, Any, Any]
@@ -193,11 +194,11 @@ class WriteMixin:
             stream = stream()
 
         # If the stream is an async generator, convert it to a sync generator:
-        if inspect.isasyncgen(stream):
-            stream = type_util.async_generator_to_sync(stream)
+        if inspect.isgenerator(stream):
+            stream = type_util.generator_to_async(stream)
 
         try:
-            iter(stream)  # type: ignore
+            aiter(stream)  # type: ignore
         except TypeError as exc:
             raise StreamlitAPIException(
                 f"The provided input (type: {type(stream)}) cannot be iterated. "
@@ -206,7 +207,7 @@ class WriteMixin:
 
         # Iterate through the generator and write each chunk to the app
         # with a type writer effect.
-        for chunk in stream:  # type: ignore
+        async for chunk in stream:  # type: ignore
             if type_util.is_openai_chunk(chunk):
                 # Try to convert OpenAI chat completion chunk to a string:
                 try:

@@ -1115,6 +1115,33 @@ class UnclosableBytesIO(io.BytesIO):
         super().close()
 
 
+def ndarray_to_list_in_data_frame(df: DataFrame) -> DataFrame:
+    """Convert np.ndarray value to list in each item of the DataFrame.
+    This is a workaround for the issue that
+    fastparquet does not support `np.ndarray` values in the DataFrame
+    as the encoding list linked below.
+    https://github.com/dask/fastparquet/blob/2024.5.0/fastparquet/writer.py#L330-L341
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        A dataframe to convert.
+
+    """
+    import numpy as np
+    import pandas as pd
+
+    new_df = pd.DataFrame()
+    for col in df.columns:
+        if isinstance(df[col].dtype, np.dtype):
+            new_df[col] = df[col].apply(
+                lambda x: x.tolist() if isinstance(x, np.ndarray) else x
+            )
+        else:
+            new_df[col] = df[col]
+    return new_df
+
+
 def data_frame_to_bytes(df: DataFrame) -> bytes:
     """Serialize pandas.DataFrame to bytes using Apache ~~Arrow~~ Parquet.
     This function is customized from the original one to use Parquet instead of Arrow
@@ -1136,6 +1163,9 @@ def data_frame_to_bytes(df: DataFrame) -> bytes:
             "Applying automatic fixes for column types to make the dataframe Arrow-compatible.",
             ex,
         )
+        df = ndarray_to_list_in_data_frame(
+            df
+        )  # Stlite: fastparquet does not support np.ndarray values. Ref: https://github.com/pandas-dev/pandas/issues/59012
         df = fix_arrow_incompatible_column_types(df)
         df.to_parquet(buf, engine="fastparquet")
 

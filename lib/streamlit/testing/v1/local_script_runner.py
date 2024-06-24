@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 import types
@@ -88,14 +90,14 @@ class LocalScriptRunner(ScriptRunner):
 
     def join(self) -> None:
         """Wait for the script thread to finish, if it is running."""
-        if self._script_thread is not None:
-            self._script_thread.join()
+        if self._script_task is not None:
+            self._script_task.cancel()
 
     def forward_msgs(self) -> list[ForwardMsg]:
         """Return all messages in our ForwardMsgQueue."""
         return self.forward_msg_queue._queue
 
-    def run(
+    async def run(
         self,
         widget_state: WidgetStates | None = None,
         query_params=None,
@@ -118,9 +120,9 @@ class LocalScriptRunner(ScriptRunner):
             page_script_hash=page_hash,
         )
         self.request_rerun(rerun_data)
-        if not self._script_thread:
+        if not self._script_task:
             self.start()
-        require_widgets_deltas(self, timeout)
+        await require_widgets_deltas(self, timeout)
 
         tree = parse_tree_from_messages(self.forward_msgs())
         return tree
@@ -152,14 +154,14 @@ class LocalScriptRunner(ScriptRunner):
         return module
 
 
-def require_widgets_deltas(runner: LocalScriptRunner, timeout: float = 3) -> None:
+async def require_widgets_deltas(runner: LocalScriptRunner, timeout: float = 3) -> None:
     """Wait for the given ScriptRunner to emit a completion event. If the timeout
     is reached, the runner will be shutdown and an error will be thrown.
     """
 
     t0 = time.time()
     while time.time() - t0 < timeout:
-        time.sleep(0.001)
+        await asyncio.sleep(0.001)
         if runner.script_stopped():
             return
 

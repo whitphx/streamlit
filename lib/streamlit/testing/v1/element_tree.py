@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1825,7 +1826,7 @@ class ElementTree(Block):
 
         return ws
 
-    def run(self, *, timeout: float | None = None) -> AppTest:
+    async def run(self, *, timeout: float | None = None) -> AppTest:
         """Run the script with updated widget values.
 
         Parameters
@@ -1837,7 +1838,7 @@ class ElementTree(Block):
         assert self._runner is not None
 
         widget_states = self.get_widget_states()
-        return self._runner._run(widget_states, timeout=timeout)
+        return await self._runner._run(widget_states, timeout=timeout)
 
     def __repr__(self):
         return format_dict(self.children)

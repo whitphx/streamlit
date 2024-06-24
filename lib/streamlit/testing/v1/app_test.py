@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -297,7 +298,7 @@ class AppTest:
             path = str(filepath.parent / script_path)
         return AppTest(path, default_timeout=default_timeout)
 
-    def _run(
+    async def _run(
         self,
         widget_state: WidgetStates | None = None,
         timeout: float | None = None,
@@ -336,7 +337,7 @@ class AppTest:
             self._script_path, self.session_state, args=self.args, kwargs=self.kwargs
         )
         with patch_config_options({"global.appTest": True}):
-            self._tree = script_runner.run(
+            self._tree = await script_runner.run(
                 widget_state, self.query_params, timeout, self._page_hash
             )
             self._tree._runner = self
@@ -356,7 +357,7 @@ class AppTest:
 
         return self
 
-    def run(self, *, timeout: float | None = None) -> AppTest:
+    async def run(self, *, timeout: float | None = None) -> AppTest:
         """Run the script from the current state.
 
         This is equivalent to manually rerunning the app or the rerun that
@@ -376,7 +377,7 @@ class AppTest:
             self
 
         """
-        return self._tree.run(timeout=timeout)
+        return await self._tree.run(timeout=timeout)
 
     def switch_page(self, page_path: str) -> AppTest:
         """Switch to another page of the app.

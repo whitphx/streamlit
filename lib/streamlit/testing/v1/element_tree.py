@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2894,7 +2895,7 @@ class ElementTree(Block):
 
         return ws
 
-    def run(self, *, timeout: float | None = None) -> AppTest:
+    async def run(self, *, timeout: float | None = None) -> AppTest:
         """Run the script with updated widget values.
 
         Parameters
@@ -2908,7 +2909,7 @@ class ElementTree(Block):
         submitted = _submitted_form_ids(self)
         form_clears = _form_clear_flags(self)
         widget_states = self.get_widget_states()
-        result = self._runner._run(widget_states, timeout=timeout)
+        result = await self._runner._run(widget_states, timeout=timeout)
         _record_submitted_form_clears(self._runner, submitted, form_clears)
         return result
 

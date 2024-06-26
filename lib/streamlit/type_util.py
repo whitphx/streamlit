@@ -965,12 +965,11 @@ def pyarrow_table_to_bytes(table: pa.Table) -> bytes:
 
 def is_colum_type_arrow_incompatible(column: Series[Any] | Index) -> bool:
     """Return True if the column type is known to cause issues during Arrow conversion."""
+    import pandas as pd
     from pandas.api.types import (
         infer_dtype,
         is_dict_like,
-        is_interval_dtype,
         is_list_like,
-        is_period_dtype,
     )
 
     if column.dtype.kind in [
@@ -990,11 +989,11 @@ def is_colum_type_arrow_incompatible(column: Series[Any] | Index) -> bool:
         return True
 
     # Stlite: not supported by fastparquet:
-    if is_interval_dtype(column.dtype):
+    if isinstance(column.dtype, pd.IntervalDtype):
         return True
 
     # Stlite: not supported by fastparquet:
-    if is_period_dtype(column.dtype):
+    if isinstance(column.dtype, pd.PeriodDtype):
         return True
 
     if column.dtype == "object":

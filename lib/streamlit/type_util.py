@@ -1152,7 +1152,7 @@ def data_frame_to_bytes(df: DataFrame) -> bytes:
 
     try:
         df.to_parquet(buf, engine="fastparquet")
-    except ValueError as ex:
+    except (ValueError, TypeError) as ex:
         _LOGGER.info(
             "Serialization of dataframe to Parquet table was unsuccessful due to: %s. "
             "Applying automatic fixes for column types to make the dataframe Arrow-compatible.",

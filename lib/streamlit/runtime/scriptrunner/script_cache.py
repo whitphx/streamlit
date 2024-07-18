@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +20,10 @@ import os.path
 import threading
 from typing import Any
 
+from stlite_server import codemod
+
 from streamlit import config
-from streamlit.runtime.scriptrunner import magic, stlite_patch
+from streamlit.runtime.scriptrunner import magic
 from streamlit.source_util import open_python_file
 
 
@@ -72,7 +75,7 @@ class ScriptCache:
             if config.get_option("runner.magicEnabled"):
                 filebody = magic.add_magic(filebody, script_path)
 
-            filebody = stlite_patch.patch(filebody, script_path)
+            filebody = codemod.patch(filebody, script_path)
 
             bytecode = compile(  # type: ignore
                 filebody,

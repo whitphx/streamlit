@@ -20,7 +20,7 @@ import os.path
 import threading
 from typing import Any
 
-from stlite_server import codemod
+from stlite_lib import codemod
 
 from streamlit import config
 from streamlit.runtime.scriptrunner import magic

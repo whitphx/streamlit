@@ -21,7 +21,7 @@ import { HotKeys, KeyMap } from "react-hotkeys"
 import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
-import { StliteKernel, StliteKernelContext } from "@stlite/kernel"
+import { StliteKernelContext } from "@stlite/kernel"
 
 // Other local imports.
 import { AppContext } from "@streamlit/app/src/components/AppContext"

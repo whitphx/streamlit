@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +71,7 @@ if not os.getenv("SNOWPARK_CONDA_BUILD"):
     INSTALL_REQUIRES.extend(SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES)
 
 # stlite: See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
-INSTALL_REQUIRES.extend(["fastparquet", "pyodide-http"])
+INSTALL_REQUIRES.extend(["fastparquet"])
 
 EXTRA_REQUIRES = {
     "snowflake": [

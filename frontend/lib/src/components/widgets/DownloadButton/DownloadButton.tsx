@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ import { WidgetStateManager } from "@streamlit/lib/src/WidgetStateManager"
 import StreamlitMarkdown from "@streamlit/lib/src/components/shared/StreamlitMarkdown"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
 import { LibContext } from "@streamlit/lib/src/components/core/LibContext"
-import { useStliteKernel, downloadFileFromStlite } from "@stlite/kernel"
+import { useStliteKernel, downloadFileFromStlite } from "@stlite/frontend-lib"
 
 export interface Props {
   endpoints: StreamlitEndpoints

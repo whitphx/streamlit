@@ -57,7 +57,7 @@ import {
   StyledBottomBlockContainer,
 } from "./styled-components"
 import ScrollToBottomContainer from "./ScrollToBottomContainer"
-import { useStliteResolvedLogo } from "@stlite/kernel"
+import { useStliteResolvedLogo } from "@stlite/frontend-lib"
 
 export interface AppViewProps {
   elements: AppRoot

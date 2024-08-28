@@ -46,6 +46,7 @@
     "@loaders.gl/gltf": "^3.2.13",
     "apache-arrow": "^16.1.0",
     "@stlite/kernel": "*",
+    "@stlite/frontend-lib": "*",
     "axios": "^1.6.0",
     "baseui": "12.2.0",
     "camelcase": "^7.0.1",

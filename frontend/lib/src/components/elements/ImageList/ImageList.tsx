@@ -24,7 +24,7 @@ import {
 } from "@streamlit/lib/src/proto"
 import { withFullScreenWrapper } from "@streamlit/lib/src/components/shared/FullScreenWrapper"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
-import { useStliteMediaObjects } from "@stlite/kernel"
+import { useStliteMediaObjects } from "@stlite/frontend-lib"
 
 import {
   StyledCaption,

@@ -20,7 +20,10 @@ import { Video as VideoProto } from "@streamlit/lib/src/proto"
 import { StreamlitEndpoints } from "@streamlit/lib/src/StreamlitEndpoints"
 import { IS_DEV_ENV } from "@streamlit/lib/src/baseconsts"
 import { WidgetStateManager as ElementStateManager } from "@streamlit/lib/src/WidgetStateManager"
-import { useStliteMediaObjectUrl, useStliteMediaObjects } from "@stlite/kernel"
+import {
+  useStliteMediaObjectUrl,
+  useStliteMediaObjects,
+} from "@stlite/frontend-lib"
 
 const DEFAULT_HEIGHT = 528
 

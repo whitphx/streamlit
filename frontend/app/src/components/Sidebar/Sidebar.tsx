@@ -49,7 +49,7 @@ import {
   StyledLogoLink,
 } from "./styled-components"
 import SidebarNav from "./SidebarNav"
-import { StliteKernelContext, resolveLogo } from "@stlite/kernel"
+import { StliteKernelContext, resolveLogo } from "@stlite/frontend-lib"
 
 export interface SidebarProps {
   endpoints: StreamlitEndpoints

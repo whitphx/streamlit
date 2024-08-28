@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +53,7 @@ import {
   sendRenderMessage,
 } from "./componentUtils"
 
-import { CustomComponentIFrame as StliteCustomComponentIFrame } from "@stlite/kernel"
+import { CustomComponentIFrame as StliteCustomComponentIFrame } from "@stlite/frontend-lib"
 
 /**
  * If we haven't received a COMPONENT_READY message this many seconds

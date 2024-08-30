@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +103,7 @@ import {
   notNullOrUndefined,
   preserveEmbedQueryParams,
 } from "@streamlit/lib/src/util/utils"
-import { ConnectionManager, StliteKernelContext } from "@stlite/kernel"
+import { StliteKernelContext } from "@stlite/kernel"
 // Other local imports.
 import { AppContext } from "@streamlit/app/src/components/AppContext"
 import AppView from "@streamlit/app/src/components/AppView"
@@ -116,6 +117,7 @@ import {
   DialogType,
   StreamlitDialog,
 } from "@streamlit/app/src/components/StreamlitDialog"
+import { ConnectionManager } from "@streamlit/app/src/connection/ConnectionManager"
 import { ConnectionState } from "@streamlit/app/src/connection/ConnectionState"
 import { SessionEventDispatcher } from "@streamlit/app/src/SessionEventDispatcher"
 import { UserSettings } from "@streamlit/app/src/components/StreamlitDialog/UserSettings"

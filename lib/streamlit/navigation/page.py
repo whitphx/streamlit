@@ -18,7 +18,7 @@ from __future__ import annotations
 import types
 from inspect import CO_COROUTINE
 from pathlib import Path
-from typing import Callable
+from typing import Awaitable, Callable
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.runtime.metrics_util import gather_metrics
@@ -270,7 +270,7 @@ class StreamlitPage:
         """
         return "" if self._default else self._url_path
 
-    async def run(self) -> None:
+    def run(self) -> None | Awaitable[None]:
         """Execute the page.
 
         When a page is returned by ``st.navigation``, use the ``.run()`` method
@@ -304,7 +304,7 @@ class StreamlitPage:
                 module.__dict__["__file__"] = self._page
                 if code.co_flags & CO_COROUTINE:
                     # The source code includes top-level awaits, so the compiled code object is a coroutine.
-                    await eval(code, module.__dict__)
+                    return eval(code, module.__dict__)
                 else:
                     exec(code, module.__dict__)
 

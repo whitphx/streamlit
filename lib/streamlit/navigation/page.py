@@ -304,6 +304,11 @@ class StreamlitPage:
                 module.__dict__["__file__"] = self._page
                 if code.co_flags & CO_COROUTINE:
                     # The source code includes top-level awaits, so the compiled code object is a coroutine.
+                    # We return an awaitable in this case to be awaited by the caller,
+                    # but we don't make this whole function async to keep the API compatible with the original Streamlit
+                    # in the case of not awaited pages.
+                    # Even though Stlite applies runtime AST patching to inject the necessary await statements,
+                    # this design is a good fail-safe.
                     return eval(code, module.__dict__)
                 else:
                     exec(code, module.__dict__)

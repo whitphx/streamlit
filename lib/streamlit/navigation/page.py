@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 from __future__ import annotations
 
 import types
+from inspect import CO_COROUTINE
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -26,7 +28,7 @@ from streamlit.string_util import validate_icon_or_emoji
 from streamlit.util import calc_md5
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
 
 @gather_metrics("Page")
@@ -279,7 +281,7 @@ class StreamlitPage:
         """
         return "" if self._default else self._url_path
 
-    def run(self) -> None:
+    def run(self) -> None | Awaitable[None]:
         """Execute the page.
 
         When a page is returned by ``st.navigation``, use the ``.run()`` method
@@ -307,7 +309,16 @@ class StreamlitPage:
             module = types.ModuleType("__main__")
             # We want __file__ to be the string path to the script
             module.__dict__["__file__"] = str(self._page)
-            exec(code, module.__dict__)  # noqa: S102
+            if code.co_flags & CO_COROUTINE:
+                # The source code includes top-level awaits, so the compiled code object is a coroutine.
+                # We return an awaitable in this case to be awaited by the caller,
+                # but we don't make this whole function async to keep the API compatible with the original Streamlit
+                # in the case of not awaited pages.
+                # Even though Stlite applies runtime AST patching to inject the necessary await statements,
+                # this design is a good fail-safe.
+                return eval(code, module.__dict__)  # noqa: S307
+            else:
+                exec(code, module.__dict__)  # noqa: S102
 
     @property
     def _script_hash(self) -> str:

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +61,8 @@ setTimeout(() =>
   // `setTimeout()` is required for this lazy loading to work in the mountable package
   // where `__webpack_public_path__` is set at runtime, as this `setTimeout()` ensures that
   // this `import()` is run after `__webpack_public_path__` is patched.
-  import("parquet-wasm").then(parquet => {
+  // @ts-expect-error
+  import("parquet-wasm/bundler").then(parquet => {
     readParquet = parquet.readParquet
   })
 )
@@ -460,7 +462,7 @@ export class Quiver {
 
   constructor(element: IArrow) {
     const table = tableFromIPC(
-      element.data ? readParquet!(element.data) : element.data
+      element.data ? readParquet!(element.data).intoIPCStream() : element.data
     )
     const schema = Quiver.parseSchema(table)
     const rawColumns = Quiver.getRawColumns(schema)

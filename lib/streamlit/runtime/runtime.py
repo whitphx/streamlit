@@ -150,28 +150,6 @@ class AsyncObjects(NamedTuple):
 
 
 class Runtime:
-    _instance: Runtime | None = None
-
-    @classmethod
-    def instance(cls) -> Runtime:
-        """Return the singleton Runtime instance. Raise an Error if the
-        Runtime hasn't been created yet.
-        """
-        if cls._instance is None:
-            raise RuntimeError("Runtime hasn't been created!")
-        return cls._instance
-
-    @classmethod
-    def exists(cls) -> bool:
-        """True if the singleton Runtime instance has been created.
-
-        When a Streamlit app is running in "raw mode" - that is, when the
-        app is run via `python app.py` instead of `streamlit run app.py` -
-        the Runtime will not exist, and various Streamlit functions need
-        to adapt.
-        """
-        return cls._instance is not None
-
     def __init__(self, config: RuntimeConfig):
         """Create a Runtime instance. It won't be started yet.
 
@@ -183,10 +161,6 @@ class Runtime:
         config
             Config options.
         """
-        if Runtime._instance is not None:
-            raise RuntimeError("Runtime instance already exists!")
-        Runtime._instance = self
-
         # Will be created when we start.
         self._async_objs: AsyncObjects | None = None
 

@@ -115,7 +115,11 @@ def invalidate_pages_cache() -> None:
 
 
 def get_pages(main_script_path_str: ScriptPath) -> dict[PageHash, PageInfo]:
-    global _cached_pages
+    # Stlite: To support multiple runtime instances, we don't use the global cache variable.
+    # global _cached_pages
+    from streamlit.runtime import get_instance
+    runtime = get_instance()
+    _cached_pages = getattr(runtime, "_cached_pages", None)
 
     # Avoid taking the lock if the pages cache hasn't been invalidated.
     precached_pages = _cached_pages
@@ -166,7 +170,8 @@ def get_pages(main_script_path_str: ScriptPath) -> dict[PageHash, PageInfo]:
                 "script_path": script_path_str,
             }
 
-        _cached_pages = pages
+        # _cached_pages = pages
+        setattr(runtime, "_cached_pages", pages)
 
         return pages
 

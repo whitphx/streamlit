@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from __future__ import annotations
+import contextvars
 
 from streamlit.runtime.runtime import Runtime, RuntimeConfig, RuntimeState
 from streamlit.runtime.session_manager import (
@@ -20,12 +21,17 @@ from streamlit.runtime.session_manager import (
     SessionClientDisconnectedError,
 )
 
+runtime_contextvar = contextvars.ContextVar("runtime", default=None)
+
 
 def get_instance() -> Runtime:
     """Return the singleton Runtime instance. Raise an Error if the
     Runtime hasn't been created yet.
     """
-    return Runtime.instance()
+    runtime = runtime_contextvar.get()
+    if not runtime:
+        raise Exception
+    return runtime
 
 
 def exists() -> bool:
@@ -36,7 +42,7 @@ def exists() -> bool:
     the Runtime will not exist, and various Streamlit functions need
     to adapt.
     """
-    return Runtime.exists()
+    return runtime_contextvar.get() is not None
 
 
 __all__ = [

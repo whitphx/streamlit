@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 # limitations under the License.
 
 from __future__ import annotations
-import contextvars
+from contextvars import ContextVar
 
 from streamlit.runtime.runtime import Runtime, RuntimeConfig, RuntimeState
 from streamlit.runtime.session_manager import (
@@ -21,7 +22,7 @@ from streamlit.runtime.session_manager import (
     SessionClientDisconnectedError,
 )
 
-runtime_contextvar = contextvars.ContextVar("runtime", default=None)
+runtime_contextvar: ContextVar[Runtime | None] = ContextVar("runtime", default=None)
 
 
 def get_instance() -> Runtime:
@@ -30,7 +31,7 @@ def get_instance() -> Runtime:
     """
     runtime = runtime_contextvar.get()
     if not runtime:
-        raise Exception
+        raise Exception("Runtime instance not created yet")
     return runtime
 
 

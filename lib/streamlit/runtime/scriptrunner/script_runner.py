@@ -311,7 +311,7 @@ class ScriptRunner:
             fragment_storage=self._fragment_storage,
             pages_manager=self._pages_manager,
         )
-        add_script_run_ctx(threading.current_thread(), ctx)
+        add_script_run_ctx(asyncio.current_task(), ctx)
 
         request = self._requests.on_scriptrunner_ready()
         while request.type == ScriptRequestType.RERUN:

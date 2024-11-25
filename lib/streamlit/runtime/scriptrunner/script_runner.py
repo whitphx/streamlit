@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -255,7 +256,7 @@ class ScriptRunner:
         if self._script_task is not None:
             raise Exception("ScriptRunner was already started")
 
-        self._script_task = asyncio.create_task(self._run_script_thread())
+        self._script_task = asyncio.create_task(self._run_script_thread_with_per_task_home_dir())
 
     def _get_script_run_ctx(self) -> ScriptRunContext:
         """Get the ScriptRunContext for the current thread.
@@ -283,6 +284,13 @@ class ScriptRunner:
                 "Something has gone very wrong!"
             )
         return ctx
+
+    async def _run_script_thread_with_per_task_home_dir(self) -> None:
+        # Stlite: Set the task-specific home directory path for this async task
+        from stlite_lib.server.task_context import TaskSpecificHomeDirectory
+
+        async with TaskSpecificHomeDirectory():
+            await self._run_script_thread()
 
     async def _run_script_thread(self) -> None:
         """The entry point for the script thread.

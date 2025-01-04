@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import contextvars
 import dataclasses
@@ -343,30 +344,22 @@ class ScriptRunContext:
         self._enqueue(msg_to_send)
 
 
-# Thread-attached storage used by add_script_run_ctx:
-# - Fields slot: parent FragmentThreadState snapshot, applied at run() time.
-# - Install slot: sentinel that prevents thread.run from being wrapped
-#   more than once across repeated add_script_run_ctx() calls.
-_FRAGMENT_THREAD_STATE_FIELDS_ATTR: Final = "_streamlit_fragment_thread_state_fields"
-_FRAGMENT_THREAD_STATE_WRAP_INSTALLED_ATTR: Final = (
-    "_streamlit_fragment_thread_state_wrap_installed"
-)
-
-
 def add_script_run_ctx(
-    thread: threading.Thread | None = None, ctx: ScriptRunContext | None = None
-) -> threading.Thread:
-    """Attach the current ScriptRunContext to a thread and propagate the
+    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
+    thread: asyncio.Task | None = None,
+    ctx: ScriptRunContext | None = None,
+) -> asyncio.Task:
+    """Attach the current ScriptRunContext to a task and propagate the
     parent's FragmentThreadState snapshot.
 
-    Normal usage: call from the parent thread, before the child starts.
-    Repeat attaches on the same not-yet-started thread are last-wins for
-    both ``ctx`` and the FragmentThreadState snapshot.
+    Normal usage: call from the parent task, before the child starts.
+    Repeat attaches on the same not-yet-started task are last-wins for
+    ``ctx``.
 
-    Self-attach fallback: when called from inside the thread it is
-    attaching to (current thread, or ``thread`` omitted with explicit
-    ``ctx``), ``ThreadState`` is seeded directly from ``ctx``. The
-    parent's ContextVar is not visible from another thread, so:
+    Self-attach fallback: when called from inside the task it is
+    attaching to (current task, or ``thread`` omitted with explicit
+    ``ctx``), ``ThreadState`` is seeded directly from ``ctx``. Only the
+    script hash carries over, so:
 
     - ``fragment_id`` and ``delta_path`` are NOT propagated; worker
       writes won't be stamped with the parent's ``fragment_id``.
@@ -378,74 +371,40 @@ def add_script_run_ctx(
 
     Parameters
     ----------
-    thread : threading.Thread or None
-        Thread to attach to. Defaults to the current thread.
+    thread : asyncio.Task or None
+        Task to attach to. Defaults to the current task.
     ctx : ScriptRunContext or None
         Context to attach. Defaults to the caller's current
         ScriptRunContext.
 
     Returns
     -------
-    threading.Thread
-        The same thread that was passed in, for chaining.
+    asyncio.Task
+        The same task that was passed in, for chaining.
 
     """
     if thread is None:
-        thread = threading.current_thread()
+        thread = asyncio.current_task()
     if ctx is None:
         ctx = get_script_run_ctx()
     if ctx is not None:
         setattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, ctx)
 
-    # ContextVars don't cross thread boundaries, so capture the parent's
-    # FragmentThreadState and initialize it when the child thread starts.
     try:
         parent_ts = ThreadState.get()
     except RuntimeError:
         parent_ts = None
 
-    if parent_ts is not None:
-        # Store the parent snapshot on the thread; the run() wrapper below
-        # reads it at start time. Repeat add_script_run_ctx() calls refresh
-        # the snapshot — last attach wins, matching the ctx attachment above.
-        setattr(
-            thread,
-            _FRAGMENT_THREAD_STATE_FIELDS_ATTR,
-            dataclasses.asdict(parent_ts),
-        )
-        # Skip the wrap if the target is already running: run() has
-        # already been called, and setting the sentinel here would
-        # pollute the main thread across tests.
-        if thread is not threading.current_thread() and not getattr(
-            thread, _FRAGMENT_THREAD_STATE_WRAP_INSTALLED_ATTR, False
-        ):
-            original_run = thread.run
-
-            # Accept but ignore extra args: ``original_run`` is already bound and
-            # takes none. Some thread wrappers (e.g. Sentry's ThreadingIntegration)
-            # re-invoke our replacement ``run`` with the thread as a positional
-            # arg; forwarding it would raise "run() takes 1 positional argument
-            # but 2 were given" (GitHub issues #15374, #16139).
-            def _run_with_thread_state(*_args: object, **_kwargs: object) -> None:
-                fields = getattr(thread, _FRAGMENT_THREAD_STATE_FIELDS_ATTR, None)
-                if fields is not None:
-                    ThreadState.initialize(**fields)
-                original_run()
-
-            thread.run = _run_with_thread_state  # type: ignore[method-assign]  # ty: ignore[invalid-assignment]
-            setattr(thread, _FRAGMENT_THREAD_STATE_WRAP_INSTALLED_ATTR, True)
-    elif ctx is not None and thread is threading.current_thread():
-        # Caller is attaching ctx from inside the currently-running
-        # thread, so the thread.run wrap above is moot. Seed ThreadState
-        # directly from ctx so subsequent ThreadState.get() /
-        # enqueue_message() calls don't crash. See the add_script_run_ctx
-        # docstring for the self-attach behaviour contract.
-        #
-        # Two callers exercise this branch:
-        #   1. ScriptRunner._run_script_thread, before ctx.reset() reseeds.
-        #   2. User code calling add_script_run_ctx(ctx=saved_ctx) from
-        #      inside a worker thread (documented against, but a real
-        #      pattern).
+    # Stlite: upstream stashes the parent's FragmentThreadState on the child and
+    # wraps its run() so the child re-initializes the ContextVar, because
+    # ContextVars don't cross thread boundaries. Here the child is an
+    # asyncio.Task, which copies the current context when it is created, so the
+    # parent's state already reaches it and there is no run() to wrap.
+    if parent_ts is None and ctx is not None and thread is asyncio.current_task():
+        # Caller is attaching ctx from inside the currently-running task. Seed
+        # ThreadState directly from ctx so subsequent ThreadState.get() /
+        # enqueue_message() calls don't crash. See the self-attach behaviour
+        # contract in the docstring above.
         ThreadState.initialize(
             active_script_hash=ctx.pages_manager.main_script_hash,
         )
@@ -466,7 +425,8 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         The current thread's ScriptRunContext, or None if it doesn't have one.
 
     """
-    thread = threading.current_thread()
+    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
+    thread = asyncio.current_task()
     ctx: ScriptRunContext | None = getattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
     if ctx is None and not suppress_warning:
         # Only warn about a missing ScriptRunContext if suppress_warning is False, and
@@ -474,9 +434,9 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         # script "bare", and doesn't need to be warned about streamlit
         # bits that are irrelevant when not connected to a session.
         _LOGGER.warning(
-            "Thread '%s': missing ScriptRunContext! This warning can be ignored when "
+            "Task '%s': missing ScriptRunContext! This warning can be ignored when "
             "running in bare mode.",
-            thread.name,
+            thread.get_name(),
         )
 
     return ctx

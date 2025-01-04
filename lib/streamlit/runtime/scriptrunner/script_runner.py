@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import gc
 import sys
-import threading
 import types
 from contextlib import contextmanager
 from enum import Enum
@@ -255,7 +255,9 @@ class ScriptRunner:
         if self._script_task is not None:
             raise Exception("ScriptRunner was already started")
 
-        self._script_task = asyncio.create_task(self._run_script_thread())
+        self._script_task = asyncio.create_task(
+            self._run_script_thread_with_per_task_home_dir()
+        )
 
     def _get_script_run_ctx(self) -> ScriptRunContext:
         """Get the ScriptRunContext for the current thread.
@@ -284,6 +286,25 @@ class ScriptRunner:
             )
         return ctx
 
+    async def _run_script_thread_with_per_task_home_dir(self) -> None:
+        # Stlite: Set the task-specific home directory path for this async task
+        from stlite_lib.server.task_context import TaskSpecificHomeDirectory
+
+        async with TaskSpecificHomeDirectory():
+            # XXX: Incomplete implementation for the task-specific home directory switching.
+            # The home directory set by `TaskSpecificHomeDirectory` can be changed
+            # after context switching, i.e. after `await` statement.
+            # This can cause issues with code like below:
+            # ```
+            # await some_async_func()  # During this await, another async task can be executed and change the home directory.
+            # with open("some_file.txt") as f:  # So this path may be resolved with the wrong home directory.
+            #     f.read()  # Then this can be the wrong result.
+            # ```
+            # This is because `TaskSpecificHomeDirectory` can be called in another async task during the context switching,
+            # and currently there is no way to restore the home directory setting when the task is resumed.
+            # TODO: Implement a way to restore the home directory setting when the task is resumed.
+            await self._run_script_thread()
+
     async def _run_script_thread(self) -> None:
         """The entry point for the script thread.
 
@@ -311,7 +332,7 @@ class ScriptRunner:
             fragment_storage=self._fragment_storage,
             pages_manager=self._pages_manager,
         )
-        add_script_run_ctx(threading.current_thread(), ctx)
+        add_script_run_ctx(asyncio.current_task(), ctx)
 
         request = self._requests.on_scriptrunner_ready()
         while request.type == ScriptRequestType.RERUN:

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import collections
 import contextlib
 import contextvars
@@ -213,7 +214,8 @@ SCRIPT_RUN_CONTEXT_ATTR_NAME: Final = "streamlit_script_run_ctx"
 
 
 def add_script_run_ctx(
-    thread: threading.Thread | None = None, ctx: ScriptRunContext | None = None
+    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
+    thread: asyncio.Task | None = None, ctx: ScriptRunContext | None = None
 ):
     """Adds the current ScriptRunContext to a newly-created thread.
 
@@ -235,7 +237,7 @@ def add_script_run_ctx(
 
     """
     if thread is None:
-        thread = threading.current_thread()
+        thread = asyncio.current_task()
     if ctx is None:
         ctx = get_script_run_ctx()
     if ctx is not None:
@@ -255,7 +257,8 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         The current thread's ScriptRunContext, or None if it doesn't have one.
 
     """
-    thread = threading.current_thread()
+    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
+    thread = asyncio.current_task()
     ctx: ScriptRunContext | None = getattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
     if ctx is None and not suppress_warning:
         # Only warn about a missing ScriptRunContext if suppress_warning is False, and
@@ -263,9 +266,9 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         # script "bare", and doesn't need to be warned about streamlit
         # bits that are irrelevant when not connected to a session.
         _LOGGER.warning(
-            "Thread '%s': missing ScriptRunContext! This warning can be ignored when "
+            "Task '%s': missing ScriptRunContext! This warning can be ignored when "
             "running in bare mode.",
-            thread.name,
+            thread.get_name(),
         )
 
     return ctx

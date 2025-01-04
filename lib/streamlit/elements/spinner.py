@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +29,10 @@ from streamlit.errors import NoSessionContext
 from streamlit.proto.Element_pb2 import Element as ElementProto
 from streamlit.proto.Spinner_pb2 import Spinner as SpinnerProto
 from streamlit.runtime.scriptrunner import enqueue_message
+from streamlit.runtime.scriptrunner_utils.script_run_context import (
+    add_script_run_ctx,
+    get_script_run_ctx,
+)
 from streamlit.string_util import clean_text
 
 if TYPE_CHECKING:
@@ -135,7 +140,17 @@ class SpinnerMixin:
                         enqueue_message(create_transient())
 
             # Stlite: Since threading does not work on Pyodide, we use asyncio instead.
-            asyncio.get_event_loop().call_later(DELAY_SECS, set_message)
+            # `enqueue_message` in `set_message` will call `get_script_run_ctx`, which accesses the current task's ctx attribute,
+            # so `set_message` must be called in a task that has been initialized by `add_script_run_ctx`.
+            ctx = get_script_run_ctx()
+
+            async def set_message_with_delay():
+                add_script_run_ctx(asyncio.current_task(), ctx)
+                await asyncio.sleep(DELAY_SECS)
+                set_message()
+
+            asyncio.create_task(set_message_with_delay())
+
             # Yield control back to the context.
             yield
         finally:

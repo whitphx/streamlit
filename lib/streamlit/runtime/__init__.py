@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # limitations under the License.
 
 from __future__ import annotations
+from contextvars import ContextVar
 
 from streamlit.runtime.runtime import Runtime, RuntimeConfig, RuntimeState
 from streamlit.runtime.session_manager import (
@@ -20,12 +22,17 @@ from streamlit.runtime.session_manager import (
     SessionClientDisconnectedError,
 )
 
+runtime_contextvar: ContextVar[Runtime | None] = ContextVar("runtime", default=None)
+
 
 def get_instance() -> Runtime:
     """Return the singleton Runtime instance. Raise an Error if the
     Runtime hasn't been created yet.
     """
-    return Runtime.instance()
+    runtime = runtime_contextvar.get()
+    if not runtime:
+        raise Exception("Runtime instance not created yet")
+    return runtime
 
 
 def exists() -> bool:
@@ -36,7 +43,7 @@ def exists() -> bool:
     the Runtime will not exist, and various Streamlit functions need
     to adapt.
     """
-    return Runtime.exists()
+    return runtime_contextvar.get() is not None
 
 
 __all__ = [

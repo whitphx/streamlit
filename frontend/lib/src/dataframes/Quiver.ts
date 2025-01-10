@@ -1,5 +1,6 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2024)
+ * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2024)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,14 +57,9 @@ import type { readParquet as readParquetType } from "parquet-wasm"
 // async-imported in the following code will be ready when it's called in the `Quiver` class's constructor,
 // but it seems to work fine in practice.
 let readParquet: typeof readParquetType | undefined = undefined
-setTimeout(() =>
-  // `setTimeout()` is required for this lazy loading to work in the mountable package
-  // where `__webpack_public_path__` is set at runtime, as this `setTimeout()` ensures that
-  // this `import()` is run after `__webpack_public_path__` is patched.
-  import("parquet-wasm").then(parquet => {
-    readParquet = parquet.readParquet
-  })
-)
+import("parquet-wasm").then(parquet => {
+  readParquet = parquet.readParquet
+})
 
 /**
  * A row-major grid of DataFrame index header values.
@@ -286,7 +282,9 @@ export class Quiver {
   private readonly _styler?: Styler
 
   constructor(element: IArrow) {
-    const table = tableFromIPC(element.data ? readParquet!(element.data) : element.data)
+    const table = tableFromIPC(
+      element.data ? readParquet!(element.data) : element.data
+    )
     const schema = Quiver.parseSchema(table)
     const rawColumns = Quiver.getRawColumns(schema)
     const fields = Quiver.parseFields(table.schema)

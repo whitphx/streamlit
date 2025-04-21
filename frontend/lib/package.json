@@ -161,7 +161,7 @@
     "@vitejs/plugin-react-swc": "^3.6.0",
     "axios-mock-adapter": "^2.1.0",
     "eslint": "^8.33.0",
-    "eslint-plugin-streamlit-custom": "file:../eslint-plugin-streamlit-custom",
+    "eslint-plugin-streamlit-custom": "workspace:^",
     "eslint-plugin-vitest": "^0.5.4",
     "node-fetch": "3.3.2",
     "postinstall-postinstall": "^2.1.0",

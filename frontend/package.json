@@ -5,6 +5,7 @@
   "workspaces": [
     "app",
     "connection",
+    "eslint-plugin-streamlit-custom",
     "lib",
     "protobuf",
     "typescript-config",

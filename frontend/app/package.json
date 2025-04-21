@@ -91,7 +91,7 @@
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-compiler": "^19.0.0-beta-40c6c23-20250301",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-streamlit-custom": "file:../eslint-plugin-streamlit-custom",
+    "eslint-plugin-streamlit-custom": "workspace:^",
     "eslint-plugin-testing-library": "^7.1.1",
     "eslint-plugin-vitest": "^0.5.4",
     "hard-source-webpack-plugin": "^0.13.1",

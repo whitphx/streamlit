@@ -852,6 +852,15 @@ def convert_pandas_df_to_arrow_bytes(df: DataFrame) -> bytes:
     bytes
         The serialized Arrow IPC bytes.
     """
+    # Stlite: fastparquet emits a valid Parquet file for a DataFrame with
+    # no columns, but parquet-wasm in the frontend cannot parse it
+    # ("Repetition level must be defined for a primitive type"), which crashes
+    # the page render of e.g. `st.dataframe([])`. Return empty bytes so the
+    # frontend renders an empty table instead.
+    # See https://github.com/whitphx/stlite/issues/2011
+    if df.shape[1] == 0:
+        return b""
+
     buf = UnclosableBytesIO()
 
     try:

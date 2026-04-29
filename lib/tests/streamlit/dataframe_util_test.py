@@ -57,6 +57,22 @@ class DataframeUtilTest(unittest.TestCase):
         except Exception as ex:
             self.fail(f"Converting dtype dataframes to Arrow should not fail: {ex}")
 
+    def test_convert_pandas_df_to_arrow_bytes_empty_no_columns(self):
+        # Stlite: A DataFrame with no columns (e.g. from `st.dataframe([])`) must
+        # serialize to empty bytes, because parquet-wasm in the frontend cannot
+        # parse the Parquet output of fastparquet for a 0-column DataFrame.
+        # See https://github.com/whitphx/stlite/issues/2011
+        result = dataframe_util.convert_pandas_df_to_arrow_bytes(pd.DataFrame())
+        assert result == b""
+
+        # A DataFrame with columns but no rows must still serialize normally,
+        # because parquet-wasm handles that case fine and the frontend needs the
+        # column headers to render them.
+        result_with_cols = dataframe_util.convert_pandas_df_to_arrow_bytes(
+            pd.DataFrame(columns=["a", "b"])
+        )
+        assert len(result_with_cols) > 0
+
     @parameterized.expand(
         SHARED_TEST_CASES,
     )

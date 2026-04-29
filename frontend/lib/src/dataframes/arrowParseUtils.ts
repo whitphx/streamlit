@@ -357,8 +357,13 @@ export function parseArrowIpcBytes(
   // Load arrow table object from Arrow IPC bytes.
   // The table contains all the cell data, the arrow schema
   // and the pandas schema (if processed through Pandas).
+  // Stlite: parquet-wasm cannot parse Parquet bytes for a DataFrame with no
+  // columns. The Python side returns empty bytes in that case; treat any
+  // missing/empty input as an empty table to avoid crashing the page.
+  // See https://github.com/whitphx/stlite/issues/2011
+  const hasParquetData = ipcBytes && ipcBytes.length > 0
   const table = tableFromIPC(
-    ipcBytes ? readParquet(ipcBytes).intoIPCStream() : ipcBytes
+    hasParquetData ? readParquet(ipcBytes).intoIPCStream() : new Uint8Array(0)
   )
 
   // The arrow schema contains type information for all columns

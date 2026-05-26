@@ -30,7 +30,19 @@ const DEV_WATCH = Boolean(process.env.DEV_WATCH)
 // https://vitejs.dev/config/
 export default defineConfig({
   base: "./",
-  plugins: !DEV_WATCH ? [dts({ insertTypesEntry: true })] : [],
+  plugins: !DEV_WATCH
+    ? [
+        dts({
+          insertTypesEntry: true,
+          // stlite: use a build-only tsconfig that excludes test files. The
+          // protobufjs $Shape/$Properties narrowing in StaticConnection.test.tsx
+          // fails type-checking and silently neutralizes the emitted
+          // index.d.ts (`export {}`), which breaks downstream consumers like
+          // @stlite/kernel that import types from this package.
+          tsconfigPath: path.resolve(__dirname, "tsconfig.build.json"),
+        }),
+      ]
+    : [],
   resolve: {
     tsconfigPaths: true,
   },

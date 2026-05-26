@@ -16,13 +16,50 @@
 
 import { FC, useMemo } from "react"
 
+import { Element, streamlit } from "@streamlit/protobuf"
+
 import type { ElementNode } from "~lib/AppNode"
 import { StyledElementContainer } from "~lib/components/core/Block/styled-components"
 import { FlexContext } from "~lib/components/core/Layout/FlexContext"
-import { useLayoutStyles } from "~lib/components/core/Layout/useLayoutStyles"
+import {
+  useLayoutStyles,
+  type UseLayoutStylesArgs,
+} from "~lib/components/core/Layout/useLayoutStyles"
 import { useRequiredContext } from "~lib/hooks/useRequiredContext"
 
 import { ElementContainerConfig } from "./ElementContainerConfig"
+
+/**
+ * Extract only the layout-relevant fields from an element's typed submessage
+ * to satisfy ``useLayoutStyles``'s ``subElement`` shape. The dynamic
+ * ``element[element.type]`` access yields a protobufjs ``$Properties`` union
+ * that TypeScript can't narrow to the ``SubElement`` structural type, so we
+ * pluck the known fields explicitly. Mirrors the helper of the same name
+ * defined for ``BlockProto`` in ``Block.tsx``.
+ */
+const getLayoutSubElement = (
+  element: Element | undefined
+): UseLayoutStylesArgs["subElement"] => {
+  const typeKey = element?.type as keyof typeof element | undefined
+  const raw = typeKey
+    ? (element as unknown as Record<string, unknown>)[typeKey]
+    : undefined
+  if (!raw || typeof raw !== "object") return undefined
+
+  const candidate = raw as Record<string, unknown>
+  return {
+    useContainerWidth: candidate.useContainerWidth as
+      | boolean
+      | null
+      | undefined,
+    height: candidate.height as number | undefined,
+    width: candidate.width as number | undefined,
+    widthConfig: candidate.widthConfig as
+      | streamlit.IWidthConfig
+      | null
+      | undefined,
+  }
+}
 
 export const StyledElementContainerLayoutWrapper: FC<
   Omit<
@@ -46,8 +83,7 @@ export const StyledElementContainerLayoutWrapper: FC<
 
   let styles = useLayoutStyles({
     element: node.element,
-    subElement:
-      (node.element?.type && node.element[node.element.type]) || undefined,
+    subElement: getLayoutSubElement(node.element),
     styleOverrides,
     minStretchBehavior,
   })

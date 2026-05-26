@@ -83,9 +83,11 @@ dependencies = [
   # "toml>=0.10.1,<2", # HACK: For stlite, comment out as it's not needed for stlite
   # Starlette requires typing-extensions >= 4.10.
   "typing-extensions>=4.10.0,<5",
-  # ASGI web-framework: required at runtime because Streamlit 1.57.0's
-  # streamlit/__init__.py imports streamlit.starlette → starlette_app.App.
-  # The package is pure-Python and works in Pyodide.
+  # ASGI web-framework: required at runtime because
+  # streamlit/__init__.py imports streamlit.starlette → starlette_app.App,
+  # and stlite calls that Starlette app directly through ASGI from the JS
+  # worker (see packages/kernel/src/asgi-bridge.ts) instead of running a
+  # real HTTP server. The package is pure-Python and works in Pyodide.
   # 0.46.0 is the first version whose `GZipMiddleware` excludes
   # `DEFAULT_EXCLUDED_CONTENT_TYPES` (e.g. `text/event-stream`) from
   # compression, which our gzip wrapper relies on.
@@ -150,8 +152,9 @@ all = [
   "rich>=11.0.0",
 ]
 
-[project.scripts]
-streamlit = "streamlit.web.cli:main"
+# Stlite: dropped the `streamlit` console script — its entry point is
+# streamlit.web.cli, which [tool.setuptools.packages.find] excludes from the
+# wheel.
 
 [project.urls]
 Homepage = "https://streamlit.io"
@@ -166,7 +169,15 @@ zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*", "streamlit.web", "streamlit.web.*"]
+exclude = [
+  "tests",
+  "tests.*",
+  # Stlite: streamlit.web.cli pulls in click + uvicorn (not Pyodide-compatible)
+  # and is only used to launch the Tornado/Starlette server, which the JS worker
+  # bypasses. The rest of streamlit.web (notably streamlit.web.server.starlette
+  # and streamlit.web.bootstrap) is shipped and called directly via ASGI.
+  "streamlit.web.cli",
+]
 
 # PEP 561: https://mypy.readthedocs.io/en/stable/installed_packages.html
 [tool.setuptools.package-data]

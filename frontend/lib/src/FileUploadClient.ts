@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
+import type { StliteKernel } from "@stlite/kernel"
 import type { AxiosProgressEvent } from "axios"
+import { FormDataEncoder } from "form-data-encoder"
 import { isEqual } from "lodash-es"
 import { getLogger } from "loglevel"
 import { v4 as uuidv4 } from "uuid"
 
 import { IFileURLs, IFileURLsResponse } from "@streamlit/protobuf"
+import { notNullOrUndefined } from "@streamlit/utils"
 
 import { SessionInfo } from "./SessionInfo"
 import { StreamlitEndpoints } from "./StreamlitEndpoints"
 import { isValidFormId } from "./util/utils"
-
-import { FormDataEncoder, FormDataLike } from "form-data-encoder"
-import type { StliteKernel } from "@stlite/kernel"
 
 /** Common widget protobuf fields that are used by the FileUploadClient. */
 interface WidgetInfo {
@@ -94,7 +94,7 @@ export class FileUploadClient {
   // Stlite: Add kernel
   private kernel: StliteKernel | undefined
 
-  public setKernel(kernel: StliteKernel) {
+  public setKernel(kernel: StliteKernel): void {
     this.kernel = kernel
   }
 
@@ -114,7 +114,7 @@ export class FileUploadClient {
     widget: WidgetInfo,
     fileUploadUrl: string,
     file: File,
-    onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+    _onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
     signal?: AbortSignal
   ): Promise<void> {
     this.offsetPendingRequestCount(widget.formId, 1)
@@ -123,15 +123,21 @@ export class FileUploadClient {
     const form = new FormData()
     form.append(file.name, file)
 
-    const encoder = new FormDataEncoder(form as unknown as FormDataLike)
+    const encoder = new FormDataEncoder(form)
     const bodyBlob = new Blob(encoder as unknown as BufferSource[], {
       type: encoder.contentType,
     })
 
     return bodyBlob.arrayBuffer().then(body => {
-      if (this.kernel == null) {
+      if (!notNullOrUndefined(this.kernel)) {
         throw new Error("Kernel not ready")
       }
+
+      LOG.debug("stlite file upload request", {
+        path: fileUploadUrl,
+        fileName: file.name,
+        fileSize: file.size,
+      })
 
       return this.kernel
         .sendHttpRequest(
@@ -144,6 +150,10 @@ export class FileUploadClient {
           signal
         )
         .then(response => {
+          LOG.debug("stlite file upload response", {
+            path: fileUploadUrl,
+            statusCode: response.statusCode,
+          })
           if (Math.floor(response.statusCode / 100) !== 2) {
             throw new Error(
               `Unexpected status code ${response.statusCode} when uploading file.`
@@ -159,9 +169,11 @@ export class FileUploadClient {
    * @param fileUrl: the URL of the file to delete.
    */
   public deleteFile(fileUrl: string): Promise<void> {
-    if (this.kernel == null) {
+    if (!notNullOrUndefined(this.kernel)) {
       throw new Error("Kernel not ready")
     }
+
+    LOG.debug("stlite file delete request", { path: fileUrl })
 
     return this.kernel
       .sendHttpRequest({
@@ -171,6 +183,10 @@ export class FileUploadClient {
         headers: {},
       })
       .then(response => {
+        LOG.debug("stlite file delete response", {
+          path: fileUrl,
+          statusCode: response.statusCode,
+        })
         if (Math.floor(response.statusCode / 100) !== 2) {
           throw new Error(
             `Unexpected status code ${response.statusCode} when uploading file.`

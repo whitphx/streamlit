@@ -596,6 +596,20 @@ def scan_component_manifests(
         max_workers, len(candidate_distributions), 16
     )  # Don't use more threads than packages or 16
 
+    # Pyodide-based runtimes such as Cloudflare Python Workers may expose the
+    # threading module without permitting new native threads.
+    if max_workers <= 1:
+        _LOGGER.debug(
+            "Scanning %d candidate packages for component manifests sequentially",
+            len(candidate_distributions),
+        )
+        for dist in candidate_distributions:
+            result = _process_single_package(dist)
+            if result:
+                manifests.append(result)
+        _LOGGER.debug("Found %d component manifests total", len(manifests))
+        return manifests
+
     _LOGGER.debug(
         "Scanning %d candidate packages for component manifests using %d worker threads",
         len(candidate_distributions),

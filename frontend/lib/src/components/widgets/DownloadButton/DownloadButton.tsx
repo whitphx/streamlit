@@ -139,8 +139,10 @@ function DownloadButton(props: Props): ReactElement {
       widgetMgr.setTriggerValue(element, { fromUi: true }, fragmentId)
     }
 
-    if (element.url.startsWith("/media")) {
+    if (
+      element.url.startsWith("/media") &&
       downloadFileFromStlite(element.url)
+    ) {
       return
     }
 

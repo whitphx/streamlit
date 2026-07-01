@@ -119,6 +119,18 @@ export class FileUploadClient {
   ): Promise<void> {
     this.offsetPendingRequestCount(widget.formId, 1)
 
+    if (this.kernel == null) {
+      return this.endpoints
+        .uploadFileUploaderFile(
+          fileUploadUrl,
+          file,
+          this.sessionInfo.current.sessionId,
+          onUploadProgress,
+          signal
+        )
+        .finally(() => this.offsetPendingRequestCount(widget.formId, -1))
+    }
+
     // Stlite: Use form upload
     const form = new FormData()
     form.append(file.name, file)
@@ -160,7 +172,10 @@ export class FileUploadClient {
    */
   public deleteFile(fileUrl: string): Promise<void> {
     if (this.kernel == null) {
-      throw new Error("Kernel not ready")
+      return this.endpoints.deleteFileAtURL?.(
+        fileUrl,
+        this.sessionInfo.current.sessionId
+      ) ?? Promise.resolve()
     }
 
     return this.kernel

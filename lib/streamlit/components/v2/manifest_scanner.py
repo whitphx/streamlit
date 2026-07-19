@@ -27,6 +27,7 @@ from __future__ import annotations
 import importlib.metadata
 import importlib.util
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -596,9 +597,11 @@ def scan_component_manifests(
         max_workers, len(candidate_distributions), 16
     )  # Don't use more threads than packages or 16
 
-    # Pyodide-based runtimes such as Cloudflare Python Workers may expose the
-    # threading module without permitting new native threads.
-    if max_workers <= 1:
+    # Pyodide-based runtimes (sys.platform == "emscripten", e.g. Cloudflare
+    # Python Workers) expose the threading module without permitting new native
+    # threads, so scan sequentially there no matter how many candidate packages
+    # exist.
+    if max_workers <= 1 or sys.platform == "emscripten":
         _LOGGER.debug(
             "Scanning %d candidate packages for component manifests sequentially",
             len(candidate_distributions),

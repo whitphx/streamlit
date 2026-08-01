@@ -24,7 +24,7 @@ import { flushSync } from "react-dom"
 import Hotkeys from "react-hot-keys"
 
 import { StliteKernelContext } from "@stlite/kernel/contexts"
-import { ConnectionManager } from "@stlite/kernel/react"
+import { ConnectionManager as StliteConnectionManager } from "@stlite/kernel/react"
 
 import AppView from "@streamlit/app/src/components/AppView/AppView"
 import DeployButton from "@streamlit/app/src/components/DeployButton/DeployButton"
@@ -60,6 +60,7 @@ import {
   LibConfig,
   parseUriIntoBaseParts,
   StreamlitEndpoints,
+  ConnectionManager as ServerConnectionManager,
 } from "@streamlit/connection"
 import {
   AppRoot,
@@ -261,7 +262,10 @@ export class App extends PureComponent<Props, State> {
 
   private readonly sessionEventDispatcher = new SessionEventDispatcher()
 
-  private connectionManager: ConnectionManager | null
+  private connectionManager:
+    | ServerConnectionManager
+    | StliteConnectionManager
+    | null
 
   private readonly widgetMgr: WidgetStateManager
 
@@ -555,12 +559,7 @@ export class App extends PureComponent<Props, State> {
     this.applyInitialHostConfig()
 
     const kernel = this.context?.kernel
-    if (kernel == null) {
-      throw new Error("Kernel is not set in the context.")
-    }
-
-    this.connectionManager = new ConnectionManager({
-      kernel,
+    const connectionManagerProps = {
       getLastSessionId: () => this.sessionInfo.last?.sessionId,
       endpoints: this.endpoints,
       onMessage: this.handleMessage,
@@ -637,17 +636,20 @@ export class App extends PureComponent<Props, State> {
         // Set the streamlit-lib specific config settings in LibConfigContext:
         this.setLibConfig(libConfig)
       },
-    })
+    }
+
+    this.connectionManager =
+      kernel == null
+        ? new ServerConnectionManager(connectionManagerProps)
+        : new StliteConnectionManager({
+            ...connectionManagerProps,
+            kernel,
+          })
 
     this.isInitializingConnectionManager = false
   }
 
   override componentDidMount(): void {
-    const kernel = this.context?.kernel
-    if (kernel == null) {
-      throw new Error("Kernel is not set in the context.")
-    }
-
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.initializeConnectionManager()
@@ -658,7 +660,10 @@ export class App extends PureComponent<Props, State> {
       scriptRunState: this.state.scriptRunState,
     })
 
-    this.uploadClient.setKernel(kernel)
+    const kernel = this.context?.kernel
+    if (kernel != null) {
+      this.uploadClient.setKernel(kernel)
+    }
 
     if (isScrollingHidden()) {
       document.body.classList.add("embedded")

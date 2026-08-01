@@ -63,11 +63,15 @@ export function isHostConfigBypassEnabled(): boolean {
  * Return the BaseUriParts for either the given url or the global window
  */
 export function parseUriIntoBaseParts(url?: string): URL {
-  // Stlite: If we're running in an iframe, the href might be "about:blank".
-  // In that case, we want to use the current path as the base path.
-  const currentUrl = new URL(
-    window.location.href === "about:blank" ? "" : window.location.href
-  )
+  // Stlite: If we're running in an iframe, the href might be "about:blank",
+  // which is not a usable URL base (`new URL("/", "/")` throws). Substitute a
+  // placeholder origin so parsing succeeds; what matters downstream is the
+  // resulting (empty) base path, not the placeholder host.
+  const fallbackUrl =
+    window.location.href === "about:blank"
+      ? "http://localhost/"
+      : window.location.href
+  const currentUrl = new URL(url ?? fallbackUrl, fallbackUrl)
 
   currentUrl.pathname = currentUrl.pathname
     .replace(FINAL_SLASH_RE, "")

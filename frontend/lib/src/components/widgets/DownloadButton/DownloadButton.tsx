@@ -140,7 +140,7 @@ function DownloadButton(props: Props): ReactElement {
     }
 
     if (element.url.startsWith("/media")) {
-      downloadFileFromStlite(element.url)
+      void downloadFileFromStlite(element.url)
       return
     }
 

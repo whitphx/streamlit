@@ -1144,3 +1144,55 @@ def test_process_single_package_mixed_install_scenarios() -> None:
         assert manifest.name == "mixed-component"
         assert manifest.version == "1.5.0"
         assert package_root == package_dir
+
+
+def test_scan_component_manifests_sequential_on_emscripten(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that Pyodide (emscripten) scans sequentially even with 2+ packages.
+
+    Pyodide-based runtimes expose the threading module without permitting new
+    native threads, so the thread pool must not be used there regardless of
+    the candidate-package count.
+    """
+    import sys
+
+    from streamlit.components.v2.manifest_scanner import scan_component_manifests
+
+    dists = []
+    for i in range(2):
+        dist = Mock()
+        dist.name = f"streamlit-package-{i}"
+        metadata = MagicMock()
+        metadata_dict = {
+            "Name": f"streamlit-package-{i}",
+            "Summary": f"Description for streamlit-package-{i}",
+        }
+        metadata.__getitem__.side_effect = metadata_dict.__getitem__
+        metadata.__contains__.side_effect = metadata_dict.__contains__
+        metadata.get_all.return_value = []
+        dist.metadata = metadata
+        dists.append(dist)
+
+    monkeypatch.setattr(sys, "platform", "emscripten")
+
+    with (
+        patch(
+            "streamlit.components.v2.manifest_scanner.importlib.metadata.distributions"
+        ) as mock_distributions,
+        patch(
+            "streamlit.components.v2.manifest_scanner._process_single_package"
+        ) as mock_process,
+        patch(
+            "streamlit.components.v2.manifest_scanner.ThreadPoolExecutor"
+        ) as mock_executor,
+    ):
+        mock_distributions.return_value = dists
+        mock_process.return_value = None
+
+        manifests = scan_component_manifests()
+
+        assert manifests == []
+        assert mock_process.call_count == 2
+        # Anti-regression: no thread pool may be created on emscripten.
+        mock_executor.assert_not_called()

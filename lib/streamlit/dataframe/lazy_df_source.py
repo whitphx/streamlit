@@ -26,6 +26,7 @@ API in the first version.
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from dataclasses import dataclass
 from enum import Enum
@@ -419,6 +420,20 @@ def resolve_lazy_source(
 
     if lazy is True:
         _validate_lazy_columns(data)
+
+    if sys.platform == "emscripten":
+        # Stlite: lazy delivery slices a `pyarrow.Table` per chunk
+        # (`_pandas_to_arrow_table`), but stlite ships a pyarrow stub because
+        # pyarrow has no Pyodide build, and its frontend parses Parquet rather
+        # than Arrow IPC. Keep every dataframe on the eager path, which stlite
+        # serializes through fastparquet instead.
+        if lazy is True:
+            raise StreamlitAPIException(
+                "`lazy=True` is not supported in stlite because lazy dataframe "
+                "delivery requires pyarrow, which has no Pyodide build. Remove "
+                "`lazy=True` to use the default preview behavior."
+            )
+        return None
 
     if config.get_option("global.appTest"):
         # AppTest exposes dataframe values through the element tree, not through

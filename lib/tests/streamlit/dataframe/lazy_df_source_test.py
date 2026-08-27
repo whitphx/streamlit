@@ -436,3 +436,28 @@ def test_default_page_size() -> None:
     """The default page size balances initial payload size and scrolling runway."""
     assert dataframe_source.DEFAULT_PAGE_SIZE == 1_000
     assert dataframe_source.MAX_CHUNK_ROWS >= dataframe_source.DEFAULT_PAGE_SIZE
+
+
+def test_resolve_keeps_pandas_eager_on_emscripten(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pyodide runtimes never take the lazy path, which needs pyarrow."""
+    import sys
+
+    monkeypatch.setattr(sys, "platform", "emscripten")
+
+    df = pd.DataFrame({"a": np.arange(AUTO_LAZY_ROW_THRESHOLD + 1)})
+    assert resolve_lazy_source(df, None, is_selection_activated=False) is None
+
+
+def test_resolve_rejects_explicit_lazy_on_emscripten(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``lazy=True`` fails loudly on Pyodide rather than hitting the pyarrow stub."""
+    import sys
+
+    monkeypatch.setattr(sys, "platform", "emscripten")
+
+    df = pd.DataFrame({"a": np.arange(FORCED_LAZY_MIN_ROWS + 1)})
+    with pytest.raises(StreamlitAPIException, match="not supported in stlite"):
+        resolve_lazy_source(df, True, is_selection_activated=False)

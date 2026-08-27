@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from typing import TYPE_CHECKING, Any, Final, Literal
 
@@ -23,7 +25,11 @@ from typing_extensions import Self
 
 from streamlit.errors import NoSessionContext
 from streamlit.proto.Element_pb2 import Element as ElementProto
-from streamlit.runtime.scriptrunner import add_script_run_ctx, enqueue_message
+from streamlit.runtime.scriptrunner import (
+    add_script_run_ctx,
+    enqueue_message,
+    get_script_run_ctx,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,7 +89,10 @@ class SkeletonPlaceholder(_SkeletonPlaceholderBase):
 
         # State tracking
         self._in_context_manager = False
-        self._timer: threading.Timer | None = None
+        # Stlite: an asyncio task rather than a threading.Timer, because
+        # Pyodide cannot start threads. Both expose cancel(), which is all
+        # __exit__ needs.
+        self._timer: asyncio.Task[None] | None = None
         self._display_lock = threading.Lock()
         self._should_display = True
 
@@ -158,10 +167,19 @@ class SkeletonPlaceholder(_SkeletonPlaceholderBase):
                 if self._should_display and self._create_transient is not None:
                     enqueue_message(self._create_transient())
 
-        # Start timer to show skeleton after delay
-        self._timer = threading.Timer(_DELAY_SECS, show_skeleton)
-        add_script_run_ctx(self._timer)
-        self._timer.start()
+        # Start timer to show skeleton after delay.
+        # Stlite: threading does not work on Pyodide, so this is an asyncio
+        # task, mirroring the same patch in st.spinner. show_skeleton() reaches
+        # enqueue_message(), which reads the current task's ctx attribute, so
+        # the task has to attach ctx to itself before it does anything else.
+        ctx = get_script_run_ctx()
+
+        async def show_skeleton_after_delay() -> None:
+            add_script_run_ctx(asyncio.current_task(), ctx)
+            await asyncio.sleep(_DELAY_SECS)
+            show_skeleton()
+
+        self._timer = asyncio.create_task(show_skeleton_after_delay())
 
         return self
 

@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import sys
 import threading
 from abc import abstractmethod
 from collections.abc import Callable, Container, Iterator
@@ -638,7 +640,15 @@ def _fragment(
             msg.auto_rerun.fragment_id = fragment_id
             ctx.enqueue(msg)
 
-        if parallel and not ctx.fragment_ids_this_run:
+        # Stlite: ParallelFragmentCoordinator hands work to a
+        # ThreadPoolExecutor, which cannot start threads under Pyodide, so
+        # `parallel=True` would raise out of the decorator. Run the fragment
+        # inline instead: parallelism is a throughput hint, and the inline path
+        # is strictly more permissive (parallel workers may not call
+        # st.dialog, st.switch_page, and friends).
+        run_parallel = parallel and sys.platform != "emscripten"
+
+        if run_parallel and not ctx.fragment_ids_this_run:
             _dispatch_parallel_fragment(ctx, fragment_id, wrapped_fragment)
             return None
         return wrapped_fragment()

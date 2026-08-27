@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import sys
 import threading
@@ -2655,3 +2656,35 @@ def test_fragment_different_definitions_same_key_collide() -> None:
         shared.register_fragment_user_key("shared_key", "mymodule.fragment_beta")
         is False
     )
+
+
+@patch("streamlit.runtime.fragment.get_script_run_ctx")
+def test_parallel_fragment_runs_inline_on_emscripten(
+    patched_get_script_run_ctx: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pyodide runs `parallel=True` fragments inline; it cannot start threads."""
+    ctx = MagicMock()
+    ctx.fragment_storage = MemoryFragmentStorage()
+    ctx.fragment_ids_this_run = None
+    ctx.shared = SharedRunState()
+    ctx.cursors = {}
+    mock_coordinator = MagicMock()
+    ctx.parallel_coordinator = mock_coordinator
+    patched_get_script_run_ctx.return_value = ctx
+
+    ThreadState.initialize()
+    monkeypatch.setattr(sys, "platform", "emscripten")
+
+    # Stlite runs the script inside a task, and get_script_run_ctx() reads
+    # asyncio.current_task(), so both decorating and calling need a running
+    # loop (the public decorator goes through gather_metrics).
+    async def decorate_and_call() -> str:
+        @fragment(parallel=True)
+        def my_parallel_fragment() -> str:
+            return "result"
+
+        return my_parallel_fragment()
+
+    assert asyncio.run(decorate_and_call()) == "result"
+    mock_coordinator.submit.assert_not_called()

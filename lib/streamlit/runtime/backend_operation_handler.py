@@ -24,8 +24,6 @@ import asyncio
 from ipaddress import ip_address
 from typing import TYPE_CHECKING, Final, Protocol
 
-import click
-
 from streamlit.logger import get_logger
 from streamlit.proto.ForwardMsg_pb2 import (
     BackendOperationResponse,
@@ -341,6 +339,13 @@ class InstallSkillsHandler(BackendOperationHandler):
             )
         except Exception as ex:
             _LOGGER.warning("One-click skills install failed", exc_info=ex)
+            # ``click`` is a CLI-only dependency, so importing it here
+            # rather than at module scope keeps ``import streamlit`` working
+            # where only the runtime is installed.
+            # Reaching this line means ``streamlit.web.skills`` imported above,
+            # and that module imports click itself, so this cannot fail.
+            import click
+
             # Only ``click.ClickException`` messages are safe to show verbatim in
             # the browser toast — they are developer-authored, never a raw OS
             # string. For any other exception (e.g. an unexpected OSError whose

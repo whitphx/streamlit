@@ -45,9 +45,15 @@ import {
 
 // Stlite: Use parquet to bypass the Arrow implementation which is unavailable in the Wasm Python environment.
 // See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
-// HACK: `wasmInit()` is an async initializer so there is no guarantee that the `parquet-wasm` methods are
-// available when it's called in the `Quiver` class's constructor, but it seems to work fine in practice.
-wasmInit()
+// `readParquet` throws until the WebAssembly module has finished instantiating,
+// and the browser build of `parquet-wasm` only starts that on the first call to
+// `wasmInit()`. Awaiting it at the top level holds this module's evaluation, so
+// every importer gets a module that can parse straight away.
+// The Node build instantiates at import time and exports no initializer, hence
+// the check.
+if (typeof wasmInit === "function") {
+  await wasmInit()
+}
 
 /**
  * Index data value.

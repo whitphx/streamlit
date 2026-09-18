@@ -361,12 +361,6 @@ def _current_ctx_holder() -> asyncio.Task[Any] | threading.Thread:
     return task if task is not None else threading.current_thread()
 
 
-def _holder_name(holder: asyncio.Task[Any] | threading.Thread) -> str:
-    if isinstance(holder, asyncio.Task):
-        return f"Task '{holder.get_name()}'"
-    return f"Thread '{holder.name}'"
-
-
 def _ensure_thread_state(ctx: ScriptRunContext) -> None:
     # Stlite: a ScriptRunContext attached to a holder from outside the script
     # Task (the thread object a JS-invoked callback runs on, or a Task created
@@ -406,6 +400,13 @@ def add_script_run_ctx(
       / ``st.navigation`` if that matters. Locked in by
       ``test_add_script_run_ctx_self_attach_uses_main_script_hash_not_page_hash``.
 
+    The thread holds a single ctx for the whole worker. With several apps
+    in one SharedWorker, a ctx attached at script level can be overwritten
+    by another app before the callback fires, so attach from inside the
+    callback right before drawing. An ``async def`` callback runs as its
+    own task and must attach to that task instead
+    (``add_script_run_ctx(ctx=ctx)`` inside the coroutine).
+
     Parameters
     ----------
     thread : asyncio.Task, threading.Thread or None
@@ -421,8 +422,9 @@ def add_script_run_ctx(
         The same holder that was passed in, for chaining.
 
     """
+    holder = _current_ctx_holder()
     if thread is None:
-        thread = _current_ctx_holder()
+        thread = holder
     if ctx is None:
         ctx = get_script_run_ctx()
     if ctx is not None:
@@ -434,7 +436,7 @@ def add_script_run_ctx(
     # copies the current context when it is created, so the parent's state
     # already reaches it and there is no run() to wrap. What is left is the
     # self-attach case described in the docstring above.
-    if ctx is not None and thread is _current_ctx_holder():
+    if ctx is not None and thread is holder:
         _ensure_thread_state(ctx)
 
     return thread
@@ -455,21 +457,24 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
     """
     holder = _current_ctx_holder()
     ctx: ScriptRunContext | None = getattr(holder, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
-    if ctx is not None:
-        # Stlite: the ctx may have been attached to this holder from another
+    if ctx is None:
+        if not suppress_warning:
+            # Only warn about a missing ScriptRunContext if suppress_warning is False,
+            # and we were started via `streamlit run`. Otherwise, the user is likely
+            # running a script "bare", and doesn't need to be warned about streamlit
+            # bits that are irrelevant when not connected to a session.
+            _LOGGER.warning(
+                "%s '%s': missing ScriptRunContext! This warning can be ignored when "
+                "running in bare mode.",
+                type(holder).__name__,
+                holder.get_name() if isinstance(holder, asyncio.Task) else holder.name,
+            )
+    elif isinstance(holder, threading.Thread):
+        # Stlite: the ctx may have been attached to the thread from another
         # Context, e.g. ``add_script_run_ctx(threading.current_thread(), ctx)``
-        # run at script level for a JS callback that fires later.
+        # run at script level for a JS callback that fires later. A Task
+        # holder is left alone so a missing ThreadState still fails loudly.
         _ensure_thread_state(ctx)
-    elif not suppress_warning:
-        # Only warn about a missing ScriptRunContext if suppress_warning is False, and
-        # we were started via `streamlit run`. Otherwise, the user is likely running a
-        # script "bare", and doesn't need to be warned about streamlit
-        # bits that are irrelevant when not connected to a session.
-        _LOGGER.warning(
-            "%s: missing ScriptRunContext! This warning can be ignored when "
-            "running in bare mode.",
-            _holder_name(holder),
-        )
 
     return ctx
 

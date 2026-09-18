@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
+    Any,
     Final,
     TypeAlias,
     TypedDict,
@@ -344,21 +345,57 @@ class ScriptRunContext:
         self._enqueue(msg_to_send)
 
 
+def _current_ctx_holder() -> asyncio.Task[Any] | threading.Thread:
+    # Stlite: the script body runs as an asyncio.Task, so the Task normally
+    # stands in for upstream's script thread as the ScriptRunContext holder.
+    # Python can also be entered from JS outside any Task step, e.g. a
+    # ``pyodide.ffi.create_proxy`` callback that a JS library fires from
+    # ``setTimeout`` or a promise handler (whitphx/stlite#2113). No Task is
+    # current there, and on host CPython the loop may not be running at all,
+    # so the thread object takes over the holder role. That keeps upstream's
+    # ``add_script_run_ctx(threading.current_thread(), ctx)`` recipe working.
+    try:
+        task = asyncio.current_task()
+    except RuntimeError:  # no running event loop
+        task = None
+    return task if task is not None else threading.current_thread()
+
+
+def _holder_name(holder: asyncio.Task[Any] | threading.Thread) -> str:
+    if isinstance(holder, asyncio.Task):
+        return f"Task '{holder.get_name()}'"
+    return f"Thread '{holder.name}'"
+
+
+def _ensure_thread_state(ctx: ScriptRunContext) -> None:
+    # Stlite: a ScriptRunContext attached to a holder from outside the script
+    # Task (the thread object a JS-invoked callback runs on, or a Task created
+    # from such a callback) is read in a contextvars Context that
+    # ``ctx.reset()`` never ran in, so no ThreadState is bound there. Seed it
+    # from ``ctx`` so ``enqueue_message()`` and friends work. Only the script
+    # hash is recoverable; see the self-attach contract on add_script_run_ctx.
+    if _thread_state.get(None) is None:
+        ThreadState.initialize(active_script_hash=ctx.pages_manager.main_script_hash)
+
+
 def add_script_run_ctx(
-    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
-    thread: asyncio.Task | None = None,
+    # Stlite: threading is not supported on Pyodide. The script's asyncio.Task
+    # takes the place of upstream's thread, and the thread object itself is
+    # the holder wherever no Task is current (see _current_ctx_holder).
+    thread: asyncio.Task[Any] | threading.Thread | None = None,
     ctx: ScriptRunContext | None = None,
-) -> asyncio.Task:
-    """Attach the current ScriptRunContext to a task and propagate the
-    parent's FragmentThreadState snapshot.
+) -> asyncio.Task[Any] | threading.Thread:
+    """Attach the current ScriptRunContext to a task (or, outside any task,
+    to the thread) and make sure a FragmentThreadState is bound for it.
 
     Normal usage: call from the parent task, before the child starts.
     Repeat attaches on the same not-yet-started task are last-wins for
     ``ctx``.
 
-    Self-attach fallback: when called from inside the task it is
-    attaching to (current task, or ``thread`` omitted with explicit
-    ``ctx``), ``ThreadState`` is seeded directly from ``ctx``. Only the
+    Self-attach fallback: when called from inside the holder it is
+    attaching to (current task, ``threading.current_thread()`` from a
+    JS-invoked callback, or ``thread`` omitted with explicit ``ctx``),
+    ``ThreadState`` is seeded directly from ``ctx``. Only the
     script hash carries over, so:
 
     - ``fragment_id`` and ``delta_path`` are NOT propagated; worker
@@ -371,43 +408,34 @@ def add_script_run_ctx(
 
     Parameters
     ----------
-    thread : asyncio.Task or None
-        Task to attach to. Defaults to the current task.
+    thread : asyncio.Task, threading.Thread or None
+        Task or thread to attach to. Defaults to the current task, or to
+        the current thread when no task is running.
     ctx : ScriptRunContext or None
         Context to attach. Defaults to the caller's current
         ScriptRunContext.
 
     Returns
     -------
-    asyncio.Task
-        The same task that was passed in, for chaining.
+    asyncio.Task or threading.Thread
+        The same holder that was passed in, for chaining.
 
     """
     if thread is None:
-        thread = asyncio.current_task()
+        thread = _current_ctx_holder()
     if ctx is None:
         ctx = get_script_run_ctx()
     if ctx is not None:
         setattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, ctx)
 
-    try:
-        parent_ts = ThreadState.get()
-    except RuntimeError:
-        parent_ts = None
-
     # Stlite: upstream stashes the parent's FragmentThreadState on the child and
     # wraps its run() so the child re-initializes the ContextVar, because
-    # ContextVars don't cross thread boundaries. Here the child is an
-    # asyncio.Task, which copies the current context when it is created, so the
-    # parent's state already reaches it and there is no run() to wrap.
-    if parent_ts is None and ctx is not None and thread is asyncio.current_task():
-        # Caller is attaching ctx from inside the currently-running task. Seed
-        # ThreadState directly from ctx so subsequent ThreadState.get() /
-        # enqueue_message() calls don't crash. See the self-attach behaviour
-        # contract in the docstring above.
-        ThreadState.initialize(
-            active_script_hash=ctx.pages_manager.main_script_hash,
-        )
+    # ContextVars don't cross thread boundaries. Here a child asyncio.Task
+    # copies the current context when it is created, so the parent's state
+    # already reaches it and there is no run() to wrap. What is left is the
+    # self-attach case described in the docstring above.
+    if ctx is not None and thread is _current_ctx_holder():
+        _ensure_thread_state(ctx)
 
     return thread
 
@@ -425,18 +453,22 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         The current thread's ScriptRunContext, or None if it doesn't have one.
 
     """
-    # Stlite: threading is not supported on Pyodide. Use asyncio instead.
-    thread = asyncio.current_task()
-    ctx: ScriptRunContext | None = getattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
-    if ctx is None and not suppress_warning:
+    holder = _current_ctx_holder()
+    ctx: ScriptRunContext | None = getattr(holder, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
+    if ctx is not None:
+        # Stlite: the ctx may have been attached to this holder from another
+        # Context, e.g. ``add_script_run_ctx(threading.current_thread(), ctx)``
+        # run at script level for a JS callback that fires later.
+        _ensure_thread_state(ctx)
+    elif not suppress_warning:
         # Only warn about a missing ScriptRunContext if suppress_warning is False, and
         # we were started via `streamlit run`. Otherwise, the user is likely running a
         # script "bare", and doesn't need to be warned about streamlit
         # bits that are irrelevant when not connected to a session.
         _LOGGER.warning(
-            "Task '%s': missing ScriptRunContext! This warning can be ignored when "
+            "%s: missing ScriptRunContext! This warning can be ignored when "
             "running in bare mode.",
-            thread.get_name(),
+            _holder_name(holder),
         )
 
     return ctx

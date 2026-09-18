@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import threading
 import unittest
 from typing import TYPE_CHECKING
@@ -34,6 +36,7 @@ from streamlit.runtime.scriptrunner_utils.script_run_context import (
     ThreadState,
     add_script_run_ctx,
     enqueue_message,
+    get_script_run_ctx,
 )
 from streamlit.runtime.scriptrunner_utils.shared_run_state import SharedRunState
 from streamlit.runtime.state import SafeSessionState, SessionState
@@ -501,6 +504,96 @@ class ScriptRunContextTest(unittest.TestCase):
         t.run(t)
 
         assert run_calls == ["test_fragment"]
+
+    # Stlite: under Pyodide a Python callback that JS invokes (a
+    # ``pyodide.ffi.create_proxy`` fired from ``setTimeout`` or a promise
+    # handler) runs on the event loop thread but outside any asyncio.Task, in
+    # a contextvars Context the script Task never touched. ``loop.call_soon``
+    # with a fresh Context reproduces both properties on host CPython.
+    @staticmethod
+    def _run_script_with_js_callback(
+        script: Callable[[], None], callback: Callable[[], None]
+    ) -> None:
+        async def script_task() -> None:
+            loop = asyncio.get_running_loop()
+            done: asyncio.Future[None] = loop.create_future()
+
+            def js_callback() -> None:
+                try:
+                    callback()
+                except BaseException as exc:
+                    done.set_exception(exc)
+                else:
+                    done.set_result(None)
+
+            script()
+            loop.call_soon(js_callback, context=contextvars.Context())
+            await done
+
+        asyncio.run(script_task())
+
+    def test_get_script_run_ctx_outside_task_without_ctx_returns_none(self):
+        """Regression test for whitphx/stlite#2113: ``get_script_run_ctx()``
+        and a bare ``add_script_run_ctx()`` must not crash on the missing
+        task when nothing is attached; the thread stands in as the holder.
+        """
+        captured: dict[str, object] = {}
+
+        def callback() -> None:
+            captured["ctx"] = get_script_run_ctx(suppress_warning=True)
+            captured["holder"] = add_script_run_ctx()
+
+        self._run_script_with_js_callback(lambda: None, callback)
+
+        assert captured["ctx"] is None
+        assert captured["holder"] is threading.current_thread()
+
+    def test_js_callback_self_attaches_to_current_thread(self):
+        """Regression test for whitphx/stlite#2113: the callback attaches the
+        ctx captured at script level to ``threading.current_thread()`` and
+        then enqueues, the recipe upstream documents for worker threads.
+        """
+        pages_manager = PagesManager("/main/script/path")
+        enable_mpa_v2_mode(pages_manager)
+        enqueued: list[ForwardMsg] = []
+        ctx = _create_script_run_context(enqueued.append, pages_manager=pages_manager)
+
+        def callback() -> None:
+            add_script_run_ctx(threading.current_thread(), ctx)
+            msg = ForwardMsg()
+            msg.delta.new_element.markdown.body = "from js"
+            enqueue_message(msg)
+
+        self._run_script_with_js_callback(
+            lambda: add_script_run_ctx(asyncio.current_task(), ctx), callback
+        )
+
+        assert [m.delta.new_element.markdown.body for m in enqueued] == ["from js"]
+        assert enqueued[0].metadata.active_script_hash == pages_manager.main_script_hash
+
+    def test_js_callback_uses_ctx_attached_to_thread_at_script_level(self):
+        """Attaching to ``threading.current_thread()`` from the script Task,
+        before the callback fires, is enough: the callback finds the ctx on
+        the thread and ``get_script_run_ctx()`` seeds its ThreadState.
+        """
+        pages_manager = PagesManager("/main/script/path")
+        enable_mpa_v2_mode(pages_manager)
+        enqueued: list[ForwardMsg] = []
+        ctx = _create_script_run_context(enqueued.append, pages_manager=pages_manager)
+
+        def script() -> None:
+            add_script_run_ctx(asyncio.current_task(), ctx)
+            add_script_run_ctx(threading.current_thread(), ctx)
+
+        def callback() -> None:
+            msg = ForwardMsg()
+            msg.delta.new_element.markdown.body = "from js"
+            enqueue_message(msg)
+
+        self._run_script_with_js_callback(script, callback)
+
+        assert [m.delta.new_element.markdown.body for m in enqueued] == ["from js"]
+        assert enqueued[0].metadata.active_script_hash == pages_manager.main_script_hash
 
 
 def test_script_run_context_attr_name_reexported_from_leaf_module() -> None:

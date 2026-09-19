@@ -36,9 +36,11 @@ from streamlit.runtime.scriptrunner_utils.exceptions import (
 )
 from streamlit.runtime.scriptrunner_utils.script_requests import RerunData
 from streamlit.runtime.scriptrunner_utils.script_run_context import (
-    SCRIPT_RUN_CONTEXT_ATTR_NAME,
     ThreadState,
     get_script_run_ctx,
+)
+from streamlit.runtime.scriptrunner_utils.script_run_context_attr import (
+    script_run_ctx_var,
 )
 
 
@@ -77,14 +79,11 @@ def _attach_mock_ctx():
     initialize ThreadState for tests that exercise submit() propagation.
     Cleans up on teardown.
     """
-    main_thread = threading.current_thread()
-    setattr(main_thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, MagicMock())
+    # Stlite: the ctx lives in a ContextVar, not on the thread.
+    token = script_run_ctx_var.set(MagicMock())
     ThreadState.initialize()
     yield
-    try:
-        delattr(main_thread, SCRIPT_RUN_CONTEXT_ATTR_NAME)
-    except AttributeError:
-        pass
+    script_run_ctx_var.reset(token)
 
 
 # --- Construction ---
@@ -404,10 +403,11 @@ def test_submit_isolates_worker_thread_state_writes():
         c.drain()
 
 
-def test_submit_clears_ctx_attribute_between_pool_submissions():
+def test_submit_propagates_each_ctx_to_its_own_submission():
     """With max_workers=1, two submissions with different ctxs each
-    see the correct ctx, and the pool thread's attribute is cleaned
-    up after both complete."""
+    see the correct ctx."""
+    # Stlite: each submission runs in its own captured Context with its ctx
+    # bound there, so nothing is left on the pool thread to clean up.
     ThreadState.initialize()
 
     ctx_a = MagicMock(name="ctx_a")
@@ -416,14 +416,12 @@ def test_submit_clears_ctx_attribute_between_pool_submissions():
     c = ParallelFragmentCoordinator(yield_check=lambda: None, max_workers=1)
     holder_a: list[object] = []
     holder_b: list[object] = []
-    pool_thread_ref: list[threading.Thread] = []
     gate = threading.Event()
     done_a = threading.Event()
     done_b = threading.Event()
 
     def worker_a() -> None:
         holder_a.append(get_script_run_ctx())
-        pool_thread_ref.append(threading.current_thread())
         gate.wait(timeout=2.0)
         done_a.set()
 
@@ -443,11 +441,6 @@ def test_submit_clears_ctx_attribute_between_pool_submissions():
 
         assert holder_a[0] is ctx_a
         assert holder_b[0] is ctx_b
-
-        pool_thread = pool_thread_ref[0]
-        remaining = getattr(pool_thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
-        assert remaining is not ctx_a
-        assert remaining is not ctx_b
     finally:
         c.drain()
 
@@ -455,8 +448,7 @@ def test_submit_clears_ctx_attribute_between_pool_submissions():
 def test_submit_with_max_workers_1_serializes_distinct_thread_states():
     """With max_workers=1, two submissions see their respective
     parent ThreadState snapshots, not each other's."""
-    main_thread = threading.current_thread()
-    setattr(main_thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, MagicMock())
+    token = script_run_ctx_var.set(MagicMock())
 
     c = ParallelFragmentCoordinator(yield_check=lambda: None, max_workers=1)
     holder_a: list[object] = []
@@ -491,7 +483,7 @@ def test_submit_with_max_workers_1_serializes_distinct_thread_states():
         assert ts_b.fragment_id == "state_b"
         assert ts_b.active_script_hash == "hash_b"
     finally:
-        delattr(main_thread, SCRIPT_RUN_CONTEXT_ATTR_NAME)
+        script_run_ctx_var.reset(token)
         c.drain()
 
 

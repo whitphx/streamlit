@@ -880,8 +880,8 @@ def _dispatch_parallel_fragment(
     run on a worker thread.
 
     The coordinator's submit() handles context propagation: the caller passes
-    ctx explicitly and submit() captures copy_context() at submit time, and the
-    worker runs inside captured.run() with _scoped_ctx_attach().
+    ctx explicitly and submit() captures copy_context() at submit time, binds
+    ctx in it, and the worker runs inside captured.run().
     """
     import streamlit as st
     from streamlit.delta_generator_singletons import context_dg_stack
@@ -913,8 +913,8 @@ def _run_parallel_fragment(
 ) -> None:
     """Worker entry point for parallel fragment execution.
 
-    Runs inside the coordinator's context propagation boundary (copy_context +
-    _scoped_ctx_attach). Sets up the skip signal for container pre-allocation
+    Runs inside the coordinator's context propagation boundary (copy_context
+    with ctx bound in it). Sets up the skip signal for container pre-allocation
     and handles control flow exceptions.
     """
     from streamlit.delta_generator_singletons import context_dg_stack

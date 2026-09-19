@@ -44,6 +44,7 @@ from streamlit.runtime.forward_msg_cache import (
 from streamlit.runtime.parallel_coordinator import ParallelFragmentCoordinator
 from streamlit.runtime.scriptrunner_utils.script_run_context_attr import (
     SCRIPT_RUN_CONTEXT_ATTR_NAME,  # noqa: F401 - re-exported for existing import paths
+    script_run_ctx_var,
 )
 from streamlit.runtime.scriptrunner_utils.shared_run_state import SharedRunState
 
@@ -142,17 +143,6 @@ class _FragmentThreadStateFields(TypedDict, total=False):
 
 _thread_state: contextvars.ContextVar[FragmentThreadState] = contextvars.ContextVar(
     "fragment_thread_state",
-)
-
-# Stlite: the active ScriptRunContext lives in a ContextVar instead of on a
-# thread attribute. Pyodide runs Python on one thread, and an asyncio.Task
-# copies the current contextvars Context when it is created, so a child task
-# inherits the script's ctx without an explicit attach. A ``create_proxy``
-# callback that JS fires later runs outside any task; stlite_lib wraps
-# ``create_proxy`` so the callback runs inside the Context captured at proxy
-# creation, which carries this var and ``_thread_state`` along with it.
-_script_run_ctx: contextvars.ContextVar[ScriptRunContext | None] = (
-    contextvars.ContextVar("script_run_ctx", default=None)
 )
 
 
@@ -357,6 +347,7 @@ class ScriptRunContext:
 
 
 def _current_task() -> asyncio.Task[Any] | None:
+    # Stlite: only used to name the holder in the missing-ctx warning.
     try:
         return asyncio.current_task()
     except RuntimeError:  # no running event loop
@@ -425,11 +416,11 @@ def add_script_run_ctx(
         or thread is _current_task()
         or thread is threading.current_thread()
     ):
-        _script_run_ctx.set(ctx)
+        script_run_ctx_var.set(ctx)
         _ensure_thread_state(ctx)
     elif isinstance(thread, asyncio.Task):
         target = thread.get_context()
-        target.run(_script_run_ctx.set, ctx)
+        target.run(script_run_ctx_var.set, ctx)
         target.run(_ensure_thread_state, ctx)
     else:
         raise TypeError(
@@ -453,7 +444,8 @@ def get_script_run_ctx(suppress_warning: bool = False) -> ScriptRunContext | Non
         The current context's ScriptRunContext, or None if it doesn't have one.
 
     """
-    ctx = _script_run_ctx.get()
+    # Stlite: the ctx lives in a ContextVar, not on a thread attribute.
+    ctx = script_run_ctx_var.get()
     if ctx is None and not suppress_warning:
         # Only warn about a missing ScriptRunContext if suppress_warning is False, and
         # we were started via `streamlit run`. Otherwise, the user is likely running a

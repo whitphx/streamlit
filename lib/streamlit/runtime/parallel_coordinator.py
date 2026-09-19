@@ -16,12 +16,11 @@
 
 Manages a thread pool for parallel fragment execution. The coordinator
 receives the caller's ``ScriptRunContext`` explicitly via ``submit()``
-so that worker threads can access the correct context.
+and binds it in the Context the worker runs in.
 """
 
 from __future__ import annotations
 
-import contextlib
 import contextvars
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -32,39 +31,15 @@ from streamlit.runtime.scriptrunner_utils.exceptions import (
     StopException,
 )
 from streamlit.runtime.scriptrunner_utils.script_run_context_attr import (
-    SCRIPT_RUN_CONTEXT_ATTR_NAME,
+    script_run_ctx_var,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
 
     from streamlit.runtime.scriptrunner_utils.script_run_context import (
         ScriptRunContext,
     )
-
-
-@contextlib.contextmanager
-def _scoped_ctx_attach(ctx: ScriptRunContext | None) -> Iterator[None]:
-    """Bind *ctx* as the active ScriptRunContext on the current thread for
-    the duration of the block; restore the prior binding on exit.
-
-    Used by ``ParallelFragmentCoordinator.submit()`` so a pool thread that
-    executes successive submissions sees the right ctx for each call and
-    never carries a stale ctx across submissions.
-    """
-    thread = threading.current_thread()
-    prev = getattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, None)
-    setattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, ctx)
-    try:
-        yield
-    finally:
-        if prev is None:
-            try:
-                delattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME)
-            except AttributeError:
-                pass
-        else:
-            setattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, prev)
 
 
 class ParallelFragmentCoordinator:
@@ -76,8 +51,8 @@ class ParallelFragmentCoordinator:
     before the run ends, and discarded.
 
     Workers submitted via :meth:`submit` run inside a
-    ``contextvars.copy_context()`` snapshot of the caller's context with a
-    scoped ``ScriptRunContext`` attach so ``get_script_run_ctx()`` and
+    ``contextvars.copy_context()`` snapshot of the caller's context with the
+    given ``ScriptRunContext`` bound in it, so ``get_script_run_ctx()`` and
     ``ThreadState.get()`` return the parent's values. Worker-side
     ``ThreadState.update()`` writes stay local to the copied context.
     """
@@ -111,12 +86,11 @@ class ParallelFragmentCoordinator:
         """Submit a worker function to the thread pool.
 
         Captures the caller's full ``contextvars.Context`` (which includes
-        ``FragmentThreadState``) at submit time.  The worker runs inside
-        ``copy_context().run(...)`` with a scoped ctx attach so
-        ``get_script_run_ctx()`` and ``ThreadState.get()`` return the parent's
-        values for the duration of the call.  Worker-side
-        ``ThreadState.update()`` writes stay local to the captured copy — they
-        never leak back to the parent thread.
+        ``FragmentThreadState``) at submit time and binds ``ctx`` in it. The
+        worker runs inside ``captured.run(...)`` so ``get_script_run_ctx()``
+        and ``ThreadState.get()`` return the parent's values for the duration
+        of the call.  Worker-side ``ThreadState.update()`` writes stay local
+        to the captured copy — they never leak back to the parent thread.
 
         Increments the outstanding counter before submitting so a nested
         submit() from inside a running worker is visible to join() before
@@ -135,14 +109,14 @@ class ParallelFragmentCoordinator:
             Positional arguments forwarded to ``fn``.
         """
         captured = contextvars.copy_context()
+        captured.run(script_run_ctx_var.set, ctx)
 
         with self._join_condition:
             self._outstanding += 1
 
         def tracked() -> None:
             try:
-                with _scoped_ctx_attach(ctx):
-                    captured.run(fn, *args)
+                captured.run(fn, *args)
             finally:
                 with self._join_condition:
                     self._outstanding -= 1

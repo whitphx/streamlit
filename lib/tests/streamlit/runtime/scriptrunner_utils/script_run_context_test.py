@@ -30,6 +30,7 @@ from streamlit.runtime.fragment import MemoryFragmentStorage
 from streamlit.runtime.memory_uploaded_file_manager import MemoryUploadedFileManager
 from streamlit.runtime.pages_manager import PagesManager
 from streamlit.runtime.parallel_coordinator import ParallelFragmentCoordinator
+from streamlit.runtime.scriptrunner_utils import script_run_context
 from streamlit.runtime.scriptrunner_utils.script_run_context import (
     SCRIPT_RUN_CONTEXT_ATTR_NAME,
     ScriptRunContext,
@@ -73,11 +74,9 @@ def _create_script_run_context(
 
 class ScriptRunContextTest(unittest.TestCase):
     def setUp(self):
-        try:
-            # clear context variable as it otherwise would be carried over between tests
-            delattr(threading.current_thread(), SCRIPT_RUN_CONTEXT_ATTR_NAME)
-        except AttributeError:
-            pass
+        # Stlite: clear the ctx ContextVar as it otherwise would be carried over
+        # between tests, which all run in this thread's root Context.
+        script_run_context._script_run_ctx.set(None)
         ThreadState.initialize()
 
     def test_allow_set_page_config_once(self):
@@ -259,11 +258,9 @@ class ScriptRunContextTest(unittest.TestCase):
                 add_script_run_ctx(ctx=ctx)
                 ts = ThreadState.get()
                 result["ts"] = ts
-                result["attached_ctx"] = getattr(
-                    threading.current_thread(),
-                    SCRIPT_RUN_CONTEXT_ATTR_NAME,
-                    None,
-                )
+                # Stlite: the ctx is bound in the worker's Context, not as a
+                # thread attribute, so read it back through the getter.
+                result["attached_ctx"] = get_script_run_ctx()
             except Exception as exc:
                 result["exc"] = exc
 
@@ -507,12 +504,15 @@ class ScriptRunContextTest(unittest.TestCase):
 
     # Stlite: under Pyodide a Python callback that JS invokes (a
     # ``pyodide.ffi.create_proxy`` fired from ``setTimeout`` or a promise
-    # handler) runs on the event loop thread but outside any asyncio.Task, in
-    # a contextvars Context the script Task never touched. ``loop.call_soon``
-    # with a fresh Context reproduces both properties on host CPython.
+    # handler) runs on the event loop thread but outside any asyncio.Task.
+    # ``loop.call_soon`` with an explicit Context reproduces that on host
+    # CPython: an empty Context stands for a bare JS entry, and a
+    # ``copy_context()`` taken in the script stands for what stlite_lib's
+    # ``create_proxy`` wrapper captures.
     @staticmethod
     def _run_script_with_js_callback(
-        script: Callable[[], None], callback: Callable[[], None]
+        script: Callable[[], contextvars.Context],
+        callback: Callable[[], None],
     ) -> None:
         async def script_task() -> None:
             loop = asyncio.get_running_loop()
@@ -526,74 +526,128 @@ class ScriptRunContextTest(unittest.TestCase):
                 else:
                     done.set_result(None)
 
-            script()
-            loop.call_soon(js_callback, context=contextvars.Context())
+            context = script()
+            loop.call_soon(js_callback, context=context)
             await done
 
         asyncio.run(script_task())
 
+    def _ctx_with_enqueue_log(self) -> tuple[ScriptRunContext, list[ForwardMsg]]:
+        pages_manager = PagesManager("/main/script/path")
+        enable_mpa_v2_mode(pages_manager)
+        enqueued: list[ForwardMsg] = []
+        ctx = _create_script_run_context(enqueued.append, pages_manager=pages_manager)
+        return ctx, enqueued
+
+    @staticmethod
+    def _enqueue_markdown(body: str) -> None:
+        msg = ForwardMsg()
+        msg.delta.new_element.markdown.body = body
+        enqueue_message(msg)
+
     def test_get_script_run_ctx_outside_task_without_ctx_returns_none(self):
-        """Regression test for whitphx/stlite#2113: ``get_script_run_ctx()``
-        and a bare ``add_script_run_ctx()`` must not crash on the missing
-        task when nothing is attached; the thread stands in as the holder.
+        """Regression test for whitphx/stlite#2113: a bare JS entry has no task
+        and no ctx; ``get_script_run_ctx()`` and ``add_script_run_ctx()`` must
+        return None rather than crash on the missing task.
         """
         captured: dict[str, object] = {}
 
         def callback() -> None:
             captured["ctx"] = get_script_run_ctx(suppress_warning=True)
-            captured["holder"] = add_script_run_ctx()
+            captured["attached"] = add_script_run_ctx()
 
-        self._run_script_with_js_callback(lambda: None, callback)
+        self._run_script_with_js_callback(contextvars.Context, callback)
 
         assert captured["ctx"] is None
-        assert captured["holder"] is threading.current_thread()
+        assert captured["attached"] is None
 
-    def test_js_callback_self_attaches_to_current_thread(self):
-        """Regression test for whitphx/stlite#2113: the callback attaches the
-        ctx captured at script level to ``threading.current_thread()`` and
-        then enqueues, the recipe upstream documents for worker threads.
+    def test_js_callback_inherits_ctx_from_captured_context(self):
+        """A callback run inside the Context captured in the script sees the
+        script's ctx and its full ThreadState with no attach, which is what
+        stlite_lib's ``create_proxy`` wrapper arranges under Pyodide. Unlike a
+        self-attach, this carries ``fragment_id`` over too.
         """
-        pages_manager = PagesManager("/main/script/path")
-        enable_mpa_v2_mode(pages_manager)
-        enqueued: list[ForwardMsg] = []
-        ctx = _create_script_run_context(enqueued.append, pages_manager=pages_manager)
+        ctx, enqueued = self._ctx_with_enqueue_log()
 
-        def callback() -> None:
-            add_script_run_ctx(threading.current_thread(), ctx)
-            msg = ForwardMsg()
-            msg.delta.new_element.markdown.body = "from js"
-            enqueue_message(msg)
+        def script() -> contextvars.Context:
+            add_script_run_ctx(ctx=ctx)
+            ThreadState.update(
+                active_script_hash="page_hash", fragment_id="my_fragment"
+            )
+            return contextvars.copy_context()
 
         self._run_script_with_js_callback(
-            lambda: add_script_run_ctx(asyncio.current_task(), ctx), callback
+            script, lambda: self._enqueue_markdown("from js")
         )
 
         assert [m.delta.new_element.markdown.body for m in enqueued] == ["from js"]
-        assert enqueued[0].metadata.active_script_hash == pages_manager.main_script_hash
+        assert enqueued[0].metadata.active_script_hash == "page_hash"
+        assert enqueued[0].delta.fragment_id == "my_fragment"
 
-    def test_js_callback_uses_ctx_attached_to_thread_at_script_level(self):
-        """Attaching to ``threading.current_thread()`` from the script Task,
-        before the callback fires, is enough: the callback finds the ctx on
-        the thread and ``get_script_run_ctx()`` seeds its ThreadState.
+    def test_js_callback_self_attaches_to_current_thread(self):
+        """Regression test for whitphx/stlite#2113: the recipe from the issue,
+        ``add_script_run_ctx(threading.current_thread(), ctx)`` inside a bare
+        JS entry, binds the ctx in that callback's Context.
         """
-        pages_manager = PagesManager("/main/script/path")
-        enable_mpa_v2_mode(pages_manager)
-        enqueued: list[ForwardMsg] = []
-        ctx = _create_script_run_context(enqueued.append, pages_manager=pages_manager)
-
-        def script() -> None:
-            add_script_run_ctx(asyncio.current_task(), ctx)
-            add_script_run_ctx(threading.current_thread(), ctx)
+        ctx, enqueued = self._ctx_with_enqueue_log()
 
         def callback() -> None:
-            msg = ForwardMsg()
-            msg.delta.new_element.markdown.body = "from js"
-            enqueue_message(msg)
+            add_script_run_ctx(threading.current_thread(), ctx)
+            self._enqueue_markdown("from js")
 
-        self._run_script_with_js_callback(script, callback)
+        self._run_script_with_js_callback(contextvars.Context, callback)
 
         assert [m.delta.new_element.markdown.body for m in enqueued] == ["from js"]
-        assert enqueued[0].metadata.active_script_hash == pages_manager.main_script_hash
+        assert (
+            enqueued[0].metadata.active_script_hash
+            == ctx.pages_manager.main_script_hash
+        )
+
+    def test_child_task_inherits_ctx(self):
+        """A task created from the script copies its Context, so it enqueues
+        into the script's session without any attach.
+        """
+        ctx, enqueued = self._ctx_with_enqueue_log()
+
+        async def script() -> None:
+            add_script_run_ctx(ctx=ctx)
+
+            async def child() -> None:
+                self._enqueue_markdown("from child")
+
+            await asyncio.create_task(child())
+
+        asyncio.run(script())
+
+        assert [m.delta.new_element.markdown.body for m in enqueued] == ["from child"]
+
+    def test_add_script_run_ctx_binds_into_pending_task(self):
+        """``add_script_run_ctx(task, ctx)`` on a task created in an unrelated
+        Context binds the ctx and a seeded ThreadState in that task's Context.
+        """
+        ctx, enqueued = self._ctx_with_enqueue_log()
+        captured: dict[str, object] = {}
+
+        async def script() -> None:
+            async def child() -> None:
+                captured["hash"] = ThreadState.get().active_script_hash
+                self._enqueue_markdown("from child")
+
+            task = asyncio.get_running_loop().create_task(
+                child(), context=contextvars.Context()
+            )
+            add_script_run_ctx(task, ctx)
+            await task
+
+        asyncio.run(script())
+
+        assert captured["hash"] == ctx.pages_manager.main_script_hash
+        assert [m.delta.new_element.markdown.body for m in enqueued] == ["from child"]
+
+    def test_add_script_run_ctx_rejects_other_thread(self):
+        ctx, _ = self._ctx_with_enqueue_log()
+        with pytest.raises(TypeError):
+            add_script_run_ctx(threading.Thread(target=lambda: None), ctx)
 
 
 def test_script_run_context_attr_name_reexported_from_leaf_module() -> None:

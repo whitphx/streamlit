@@ -26,9 +26,7 @@ from typing_extensions import Self
 from streamlit.errors import NoSessionContext
 from streamlit.proto.Element_pb2 import Element as ElementProto
 from streamlit.runtime.scriptrunner import (
-    add_script_run_ctx,
     enqueue_message,
-    get_script_run_ctx,
 )
 
 if TYPE_CHECKING:
@@ -169,13 +167,10 @@ class SkeletonPlaceholder(_SkeletonPlaceholderBase):
 
         # Start timer to show skeleton after delay.
         # Stlite: threading does not work on Pyodide, so this is an asyncio
-        # task, mirroring the same patch in st.spinner. show_skeleton() reaches
-        # enqueue_message(), which reads the current task's ctx attribute, so
-        # the task has to attach ctx to itself before it does anything else.
-        ctx = get_script_run_ctx()
-
+        # task, mirroring the same patch in st.spinner. The task copies the
+        # script's contextvars Context, so show_skeleton() reaches
+        # enqueue_message() with the same ScriptRunContext.
         async def show_skeleton_after_delay() -> None:
-            add_script_run_ctx(asyncio.current_task(), ctx)
             await asyncio.sleep(_DELAY_SECS)
             show_skeleton()
 

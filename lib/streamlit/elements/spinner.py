@@ -25,10 +25,6 @@ from streamlit.errors import NoSessionContext
 from streamlit.proto.Element_pb2 import Element as ElementProto
 from streamlit.proto.Spinner_pb2 import Spinner as SpinnerProto
 from streamlit.runtime.scriptrunner import enqueue_message
-from streamlit.runtime.scriptrunner_utils.script_run_context import (
-    add_script_run_ctx,
-    get_script_run_ctx,
-)
 from streamlit.string_util import clean_text
 
 if TYPE_CHECKING:
@@ -136,12 +132,9 @@ class SpinnerMixin:
                         enqueue_message(create_transient())
 
             # Stlite: Since threading does not work on Pyodide, we use asyncio instead.
-            # `enqueue_message` in `set_message` will call `get_script_run_ctx`, which accesses the current task's ctx attribute,
-            # so `set_message` must be called in a task that has been initialized by `add_script_run_ctx`.
-            ctx = get_script_run_ctx()
-
+            # The task copies the script's contextvars Context, so `enqueue_message`
+            # in `set_message` finds the same ScriptRunContext.
             async def set_message_with_delay():
-                add_script_run_ctx(asyncio.current_task(), ctx)
                 await asyncio.sleep(DELAY_SECS)
                 set_message()
 

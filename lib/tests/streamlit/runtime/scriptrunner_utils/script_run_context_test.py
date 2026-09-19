@@ -30,7 +30,6 @@ from streamlit.runtime.fragment import MemoryFragmentStorage
 from streamlit.runtime.memory_uploaded_file_manager import MemoryUploadedFileManager
 from streamlit.runtime.pages_manager import PagesManager
 from streamlit.runtime.parallel_coordinator import ParallelFragmentCoordinator
-from streamlit.runtime.scriptrunner_utils import script_run_context
 from streamlit.runtime.scriptrunner_utils.script_run_context import (
     SCRIPT_RUN_CONTEXT_ATTR_NAME,
     ScriptRunContext,
@@ -38,6 +37,9 @@ from streamlit.runtime.scriptrunner_utils.script_run_context import (
     add_script_run_ctx,
     enqueue_message,
     get_script_run_ctx,
+)
+from streamlit.runtime.scriptrunner_utils.script_run_context_attr import (
+    script_run_ctx_var,
 )
 from streamlit.runtime.scriptrunner_utils.shared_run_state import SharedRunState
 from streamlit.runtime.state import SafeSessionState, SessionState
@@ -76,7 +78,7 @@ class ScriptRunContextTest(unittest.TestCase):
     def setUp(self):
         # Stlite: clear the ctx ContextVar as it otherwise would be carried over
         # between tests, which all run in this thread's root Context.
-        script_run_context._script_run_ctx.set(None)
+        script_run_ctx_var.set(None)
         ThreadState.initialize()
 
     def test_allow_set_page_config_once(self):
@@ -329,30 +331,28 @@ class ScriptRunContextTest(unittest.TestCase):
         assert captured["active_script_hash"] != "page_hash"
 
     def test_add_script_run_ctx_double_attach_is_last_wins(self):
-        """Repeat ``add_script_run_ctx`` calls on a not-yet-started thread
-        are last-wins for the parent ``FragmentThreadState`` snapshot.
+        """Repeat ``add_script_run_ctx`` calls on a not-yet-started task are
+        last-wins for ``ctx``.
         """
-        pages_manager = PagesManager("/main/script/path")
-        enable_mpa_v2_mode(pages_manager)
-        ctx = _create_script_run_context(lambda _msg: None, pages_manager=pages_manager)
-
+        # Stlite: the child is a pending asyncio.Task rather than a Thread.
+        ctx_a, _ = self._ctx_with_enqueue_log()
+        ctx_b, _ = self._ctx_with_enqueue_log()
         captured: dict[str, object] = {}
 
-        def worker_target() -> None:
-            captured["fragment_id"] = ThreadState.get().fragment_id
+        async def script() -> None:
+            async def child() -> None:
+                captured["ctx"] = get_script_run_ctx()
 
-        t = threading.Thread(target=worker_target)
+            task = asyncio.get_running_loop().create_task(
+                child(), context=contextvars.Context()
+            )
+            add_script_run_ctx(task, ctx_a)
+            add_script_run_ctx(task, ctx_b)
+            await task
 
-        ThreadState.update(fragment_id="frag1")
-        add_script_run_ctx(t, ctx)
+        asyncio.run(script())
 
-        ThreadState.update(fragment_id="frag2")
-        add_script_run_ctx(t, ctx)
-
-        t.start()
-        t.join()
-
-        assert captured["fragment_id"] == "frag2"
+        assert captured["ctx"] is ctx_b
 
     def test_reset_raises_when_called_from_non_main_thread(self):
         """``reset()`` may only be called from the script thread that
@@ -403,44 +403,45 @@ class ScriptRunContextTest(unittest.TestCase):
         assert calls == [1]
 
     def test_add_script_run_ctx_propagates_thread_state_to_child(self):
-        """Child threads observe the parent's ``FragmentThreadState``
-        snapshot on start; child mutations stay isolated from the parent's
-        ContextVar.
+        """Child tasks observe the parent's ``FragmentThreadState`` on start;
+        child mutations stay isolated from the parent's ContextVar.
         """
-        pages_manager = PagesManager("/main/script/path")
-        enable_mpa_v2_mode(pages_manager)
-        ctx = _create_script_run_context(lambda _msg: None, pages_manager=pages_manager)
-
-        ThreadState.initialize(
-            fragment_id="parent_fragment",
-            delta_path=(1, 2, 3),
-            active_script_hash="parent_hash",
-        )
-
+        # Stlite: the child is an asyncio.Task, which copies the parent's
+        # Context when it is created, so no attach call is involved.
+        ctx, _ = self._ctx_with_enqueue_log()
         captured: dict[str, object] = {}
 
-        def child_target() -> None:
-            ts_before = ThreadState.get()
-            captured["before"] = (
-                ts_before.fragment_id,
-                ts_before.delta_path,
-                ts_before.active_script_hash,
+        async def script() -> None:
+            add_script_run_ctx(ctx=ctx)
+            ThreadState.initialize(
+                fragment_id="parent_fragment",
+                delta_path=(1, 2, 3),
+                active_script_hash="parent_hash",
             )
-            ThreadState.update(fragment_id="child_changed_it")
-            captured["after_child_update"] = ThreadState.get().fragment_id
 
-        t = threading.Thread(target=child_target)
-        add_script_run_ctx(t, ctx)
-        t.start()
-        t.join()
+            async def child() -> None:
+                ts_before = ThreadState.get()
+                captured["before"] = (
+                    ts_before.fragment_id,
+                    ts_before.delta_path,
+                    ts_before.active_script_hash,
+                )
+                ThreadState.update(fragment_id="child_changed_it")
+                captured["after_child_update"] = ThreadState.get().fragment_id
+
+            await asyncio.create_task(child())
+            parent_ts = ThreadState.get()
+            captured["parent"] = (
+                parent_ts.fragment_id,
+                parent_ts.delta_path,
+                parent_ts.active_script_hash,
+            )
+
+        asyncio.run(script())
 
         assert captured["before"] == ("parent_fragment", (1, 2, 3), "parent_hash")
         assert captured["after_child_update"] == "child_changed_it"
-
-        parent_ts = ThreadState.get()
-        assert parent_ts.fragment_id == "parent_fragment"
-        assert parent_ts.delta_path == (1, 2, 3)
-        assert parent_ts.active_script_hash == "parent_hash"
+        assert captured["parent"] == ("parent_fragment", (1, 2, 3), "parent_hash")
 
     def test_ctx_construction_creates_shared(self):
         """A freshly constructed ScriptRunContext owns its own SharedRunState."""
@@ -470,37 +471,6 @@ class ScriptRunContextTest(unittest.TestCase):
         assert "fragment" not in ctx.shared.new_fragment_ids
         assert ctx.shared.tracked_commands == ()
         assert ctx.shared.tracked_commands_count == 0
-
-    def test_run_wrapper_tolerates_extra_positional_arg_from_thread_wrapper(self):
-        """The wrapper must tolerate an extra positional argument without
-        forwarding it to the already-bound original run().
-
-        Regression test for GitHub issues #15374 and #16139, where a thread
-        wrapper (Sentry's ThreadingIntegration) re-invokes the wrapper with the
-        thread as an extra positional arg; forwarding it raised a TypeError.
-        """
-        pages_manager = PagesManager("/main/script/path")
-        enable_mpa_v2_mode(pages_manager)
-        ctx = _create_script_run_context(lambda _msg: None, pages_manager=pages_manager)
-
-        ThreadState.initialize(fragment_id="test_fragment")
-
-        run_calls: list[object] = []
-
-        class NoArgRunThread(threading.Thread):
-            """Thread whose run() takes no args, like threading.Thread/Timer."""
-
-            def run(self) -> None:
-                run_calls.append(ThreadState.get().fragment_id)
-
-        t = NoArgRunThread()
-        add_script_run_ctx(t, ctx)
-
-        # Simulate the Sentry ThreadingIntegration calling pattern: the wrapper
-        # is invoked with the thread instance as an extra positional argument.
-        t.run(t)
-
-        assert run_calls == ["test_fragment"]
 
     # Stlite: under Pyodide a Python callback that JS invokes (a
     # ``pyodide.ffi.create_proxy`` fired from ``setTimeout`` or a promise

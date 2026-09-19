@@ -23,8 +23,8 @@ from streamlit.runtime.memory_uploaded_file_manager import MemoryUploadedFileMan
 from streamlit.runtime.pages_manager import PagesManager
 from streamlit.runtime.scriptrunner import ScriptRunContext
 from streamlit.runtime.scriptrunner_utils.script_run_context import (
-    SCRIPT_RUN_CONTEXT_ATTR_NAME,
     ThreadState,
+    script_run_ctx_var,
 )
 from streamlit.runtime.state import SafeSessionState, SessionState
 
@@ -81,20 +81,16 @@ def call_on_threads(
                 pages_manager=PagesManager(""),
             )
             thread = threads[ii]
-            # Attach ctx directly rather than via add_script_run_ctx so each
-            # worker simulates an independent script run rather than inheriting
-            # the caller's ThreadState snapshot. (add_script_run_ctx wraps
-            # thread.run to propagate the parent's snapshot, which would
-            # stack with the wrapper below and leak the parent's state into
-            # the worker.) In production, ScriptRunner.reset() initializes
+            # Stlite: bind ctx in the worker's own Context, so each worker
+            # simulates an independent script run rather than inheriting the
+            # caller's state. In production, ScriptRunner.reset() initializes
             # ThreadState; here we do it manually in _run_with_init.
-            setattr(thread, SCRIPT_RUN_CONTEXT_ATTR_NAME, ctx)
             original_run = thread.run
 
-            # Default arg captures original_run per iteration; without it,
-            # all workers would see the last iteration's run() via
-            # late-binding closure.
-            def _run_with_init(orig=original_run):
+            # Default args capture per iteration; without them, all workers
+            # would see the last iteration's values via late-binding closure.
+            def _run_with_init(orig=original_run, ctx=ctx):
+                script_run_ctx_var.set(ctx)
                 ThreadState.initialize()
                 orig()
 

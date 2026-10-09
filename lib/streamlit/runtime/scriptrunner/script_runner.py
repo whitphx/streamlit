@@ -453,9 +453,10 @@ class ScriptRunner:
             # fails. Receiver dispatch may itself raise.
             try:
                 try:
-                    # Detach the loop before notifying AppSession, which may
-                    # later close its session-owned loop when handling SHUTDOWN.
-                    asyncio.set_event_loop(None)
+                    # Stlite: nothing to detach, since _install_event_loop()
+                    # installs no loop. Calling set_event_loop(None) here would
+                    # drop Pyodide's default WebLoop.
+                    pass
                 finally:
                     self._event_loop = None
             finally:
@@ -509,7 +510,10 @@ class ScriptRunner:
             raise RuntimeError("ScriptRunner event loop is no longer available")
         if loop.is_closed():
             raise RuntimeError("ScriptRunner event loop is closed")
-        asyncio.set_event_loop(loop)
+        # Stlite: the script runs as a task on the worker's only event loop, so
+        # get_event_loop() already returns a loop there.
+        # Pyodide's WebLoopPolicy.set_event_loop() replaces its default
+        # WebLoop. JS-to-Python callbacks then get a loop that runs nothing.
 
     def _enqueue_forward_msg(self, msg: ForwardMsg) -> None:
         """Enqueue a ForwardMsg to our browser queue.

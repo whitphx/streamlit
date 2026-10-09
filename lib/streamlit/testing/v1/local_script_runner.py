@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import time
 import types
 from typing import TYPE_CHECKING, Any
@@ -60,7 +61,14 @@ class LocalScriptRunner(ScriptRunner):
         self.session_state = session_state
         self.args = args if args is not None else ()
         self.kwargs = kwargs if kwargs is not None else {}
-        self._owned_event_loop = asyncio.new_event_loop()
+        # Stlite: on Pyodide, new_event_loop() hijacks the worker's running loop,
+        # so reuse that loop instead. WebLoop.close() is a no-op, so the
+        # cleanup below cannot close it.
+        self._owned_event_loop = (
+            asyncio.get_running_loop()
+            if sys.platform == "emscripten"
+            else asyncio.new_event_loop()
+        )
 
         try:
             super().__init__(

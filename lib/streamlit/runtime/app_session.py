@@ -1,4 +1,5 @@
 # Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+# Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,6 +103,11 @@ def _close_script_event_loop(loop: asyncio.AbstractEventLoop) -> None:
     pending tasks, async generators, and the default executor are drained when
     Python permits the loop to be driven on this thread.
     """
+    # Stlite: the script loop is the worker's own WebLoop (see AppSession.__init__).
+    # WebLoop ignores close(), and its is_running() is always True,
+    # so going on would only log a bogus "deferring closure" warning.
+    if sys.platform == "emscripten":
+        return
     if loop.is_closed():
         return
     if loop.is_running():
@@ -226,7 +232,15 @@ class AppSession:
         # Streamlit installs the loop but does not run it continuously. The
         # loop outlives individual ScriptRunners so loop-bound session and
         # cache resources remain valid when a runner is replaced.
-        self._script_event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        # Stlite: on Pyodide, new_event_loop() makes the new WebLoop both the
+        # running loop and the policy default, which strands every task already
+        # on the worker's loop ("Future attached to a different loop").
+        # The script runs as a task on the worker's loop, so reuse it.
+        self._script_event_loop: asyncio.AbstractEventLoop = (
+            self._event_loop
+            if sys.platform == "emscripten"
+            else asyncio.new_event_loop()
+        )
         self._script_data = script_data
         self._uploaded_file_mgr = uploaded_file_manager
         self._script_cache = script_cache

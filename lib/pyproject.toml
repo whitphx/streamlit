@@ -151,9 +151,9 @@ all = [
   "rich>=11.0.0",
 ]
 
-# Stlite: dropped the `streamlit` console script — its entry point is
-# streamlit.web.cli, which [tool.setuptools.packages.find] excludes from the
-# wheel.
+# Stlite: dropped the `streamlit` console script. Its entry point,
+# streamlit.web.cli, imports click, which the Pyodide wheel does not ship.
+# The module itself still ships, unimported: packages.find excludes only packages.
 
 [project.urls]
 Homepage = "https://streamlit.io"
@@ -168,15 +168,7 @@ zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
-exclude = [
-  "tests",
-  "tests.*",
-  # Stlite: streamlit.web.cli pulls in click + uvicorn (not Pyodide-compatible)
-  # and is only used to launch the Tornado/Starlette server, which the JS worker
-  # bypasses. The rest of streamlit.web (notably streamlit.web.server.starlette
-  # and streamlit.web.bootstrap) is shipped and called directly via ASGI.
-  "streamlit.web.cli",
-]
+exclude = ["tests", "tests.*"]
 
 # PEP 561: https://mypy.readthedocs.io/en/stable/installed_packages.html
 [tool.setuptools.package-data]

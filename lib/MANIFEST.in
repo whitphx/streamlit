@@ -1,8 +1,5 @@
 include streamlit/py.typed
-# Git-tracked files under streamlit/.agents would otherwise all ship.
-# Keep only the published skill trees.
+# Stlite: ship none of streamlit/.agents. Only the skills installer reads it,
+# and that never runs in a browser.
 prune streamlit/.agents
-recursive-include streamlit/.agents/meta-skill/developing-with-streamlit *
-recursive-include streamlit/.agents/skills/developing-with-streamlit *
-recursive-include streamlit/hello *
 recursive-include streamlit/static *

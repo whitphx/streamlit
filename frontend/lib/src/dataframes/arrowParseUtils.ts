@@ -1,6 +1,5 @@
 /**
  * Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
- * Copyright (c) Yuichiro Tachibana (Tsuchiya) (2022-2026)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +29,6 @@ import {
   Vector,
 } from "apache-arrow"
 import { range, unzip } from "lodash-es"
-import wasmInit, { readParquet } from "parquet-wasm"
 
 import { isNullOrUndefined, notNullOrUndefined } from "~lib/util/utils"
 
@@ -42,18 +40,6 @@ import {
   PandasRangeIndexType,
   type PandasSchema,
 } from "./arrowTypeUtils"
-
-// Stlite: Use parquet to bypass the Arrow implementation which is unavailable in the Wasm Python environment.
-// See https://github.com/whitphx/stlite/issues/509#issuecomment-1657957887
-// `readParquet` throws until the WebAssembly module has finished instantiating,
-// and the browser build of `parquet-wasm` only starts that on the first call to
-// `wasmInit()`. Awaiting it at the top level holds this module's evaluation, so
-// every importer gets a module that can parse straight away.
-// The Node build instantiates at import time and exports no initializer, hence
-// the check.
-if (typeof wasmInit === "function") {
-  await wasmInit()
-}
 
 /**
  * Index data value.
@@ -375,14 +361,7 @@ export function parseArrowIpcBytes(
   // Load arrow table object from Arrow IPC bytes.
   // The table contains all the cell data, the arrow schema
   // and the pandas schema (if processed through Pandas).
-  // Stlite: parquet-wasm cannot parse Parquet bytes for a DataFrame with no
-  // columns. The Python side returns empty bytes in that case; treat any
-  // missing/empty input as an empty table to avoid crashing the page.
-  // See https://github.com/whitphx/stlite/issues/2011
-  const hasParquetData = ipcBytes && ipcBytes.length > 0
-  const table = tableFromIPC(
-    hasParquetData ? readParquet(ipcBytes).intoIPCStream() : new Uint8Array(0)
-  )
+  const table = tableFromIPC(ipcBytes)
 
   // The arrow schema contains type information for all columns
   // that are part of the table. This doesn't include range indices

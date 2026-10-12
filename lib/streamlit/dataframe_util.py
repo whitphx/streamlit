@@ -19,7 +19,6 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import inspect
-import io
 import re
 import warnings
 from collections import ChainMap, UserDict, UserList, deque
@@ -972,51 +971,12 @@ def convert_pandas_df_to_arrow_table(
             ) from retry_ex
 
 
-# `pd.DataFrame.to_parquet()` always closes the file handle,
-# but we need to keep it open to get the written data.
-# So we use this custom class to prevent the closing.
-# https://github.com/dask/fastparquet/issues/868
-class UnclosableBytesIO(io.BytesIO):
-    def close(self):
-        pass
-
-    def really_close(self):
-        super().close()
-
-
-def ndarray_to_list_in_data_frame(df: DataFrame) -> DataFrame:
-    """Convert np.ndarray value to list in each item of the DataFrame.
-    This is a workaround for the issue that
-    fastparquet does not support `np.ndarray` values in the DataFrame
-    as the encoding list linked below.
-    https://github.com/dask/fastparquet/blob/2024.5.0/fastparquet/writer.py#L330-L341
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        A dataframe to convert.
-    """
-    import numpy as np
-    import pandas as pd
-
-    new_df = pd.DataFrame()
-    for col in df.columns:
-        if isinstance(df[col].dtype, np.dtype):
-            new_df[col] = df[col].apply(
-                lambda x: x.tolist() if isinstance(x, np.ndarray) else x
-            )
-        else:
-            new_df[col] = df[col]
-    return new_df
-
-
 def convert_pandas_df_to_arrow_bytes(
     df: DataFrame,
     *,
-    downcast_large_types: bool = False,  # noqa: ARG001 - accepted for upstream API parity; parquet output doesn't carry Arrow large-type codes.
+    downcast_large_types: bool = False,
 ) -> bytes:
     """Serialize pandas.DataFrame to Arrow IPC bytes.
-    This function is customized from the original one to use Parquet instead of Arrow
-    for stlite. See https://github.com/whitphx/stlite/issues/509
 
     Parameters
     ----------
@@ -1035,36 +995,12 @@ def convert_pandas_df_to_arrow_bytes(
     bytes
         The serialized Arrow IPC bytes.
     """
-    # Stlite: fastparquet emits a valid Parquet file for a DataFrame with
-    # no columns, but parquet-wasm in the frontend cannot parse it
-    # ("Repetition level must be defined for a primitive type"), which crashes
-    # the page render of e.g. `st.dataframe([])`. Return empty bytes so the
-    # frontend renders an empty table instead.
-    # See https://github.com/whitphx/stlite/issues/2011
-    if df.shape[1] == 0:
-        return b""
+    table = convert_pandas_df_to_arrow_table(df)
 
-    buf = UnclosableBytesIO()
+    if downcast_large_types:
+        table = _downcast_large_arrow_types(table)
 
-    try:
-        df.to_parquet(buf, engine="fastparquet")
-    except (ValueError, TypeError) as ex:
-        _LOGGER.info(
-            "Serialization of dataframe to Parquet table was unsuccessful. "
-            "Applying automatic fixes for column types to make the dataframe "
-            "Arrow-compatible.",
-            exc_info=ex,
-        )
-        df = ndarray_to_list_in_data_frame(
-            df
-        )  # Stlite: fastparquet does not support np.ndarray values. Ref: https://github.com/pandas-dev/pandas/issues/59012
-        df = fix_arrow_incompatible_column_types(df)
-        df.to_parquet(buf, engine="fastparquet")
-
-    data = buf.getvalue()
-    buf.really_close()
-
-    return data
+    return convert_arrow_table_to_arrow_bytes(table)
 
 
 def convert_arrow_bytes_to_pandas_df(source: bytes) -> DataFrame:
@@ -1267,7 +1203,6 @@ def determine_arrow_column_fix(
         right after and can recover from a failed serialization should pass
         ``False`` and rely on that failure instead.
     """
-    import pandas as pd
     from pandas.api.extensions import ExtensionArray
     from pandas.api.types import infer_dtype, is_dict_like, is_list_like
 
@@ -1286,14 +1221,6 @@ def determine_arrow_column_fix(
     }:
         return "string"
 
-    # Stlite: not supported by fastparquet:
-    if isinstance(column.dtype, pd.IntervalDtype):
-        return True
-
-    # Stlite: not supported by fastparquet:
-    if isinstance(column.dtype, pd.PeriodDtype):
-        return True
-
     if column.dtype == "object":
         # The dtype of mixed type columns is always object. In pandas 3.0+, pure
         # string columns use StringDtype instead of object, so they won't enter
@@ -1305,10 +1232,6 @@ def determine_arrow_column_fix(
         if inferred_type in {
             "mixed-integer",
             "complex",
-            # Stlite: not supported by fastparquet (as object types):
-            "date",
-            "time",
-            "datetime",
         }:
             return "string"
         if inferred_type == "mixed":
@@ -1337,12 +1260,6 @@ def determine_arrow_column_fix(
             # dicts are list-like, but have issues in Arrow JS (see comments in
             # Quiver.ts)
             if is_dict_like(first_value):
-                return "string"
-            # Stlite: not supported by fastparquet:
-            if isinstance(first_value, (set, tuple)):
-                return "string"
-            # Stlite: not supported by fastparquet:
-            if infer_dtype(first_value, skipna=True) == "datetime":
                 return "string"
             # Frozensets and ExtensionArrays (e.g. ArrowStringArray from pandas 3+)
             # are list-like but not directly serializable by PyArrow - convert to lists.
@@ -1400,7 +1317,6 @@ def fix_arrow_incompatible_column_types(
     The fixed dataframe.
     """
     import pandas as pd
-    from pandas.api.types import infer_dtype
 
     # Make a copy, but only initialize if necessary to preserve memory.
     df_copy: DataFrame | None = None
@@ -1441,13 +1357,6 @@ def fix_arrow_incompatible_column_types(
         if df_copy is None:
             df_copy = df.copy()
         df_copy.index = df.index.astype("string")
-
-    # Stlite: fastparquet does not support non-string column names:
-    if infer_dtype(df.columns) != "string":
-        if df_copy is None:
-            df_copy = df.copy()
-        df_copy.columns = df.columns.astype("string")
-
     return df_copy if df_copy is not None else df
 
 

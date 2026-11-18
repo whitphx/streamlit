@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import os
 import shutil
 import tempfile
@@ -35,6 +36,9 @@ from streamlit.runtime import (
     RuntimeState,
     SessionClient,
     SessionClientDisconnectedError,
+    exists,
+    get_instance,
+    runtime_contextvar,
 )
 from streamlit.runtime.caching.storage.local_disk_cache_storage import (
     LocalDiskCacheStorageManager,
@@ -80,36 +84,43 @@ class RuntimeConfigTests(unittest.TestCase):
 
 
 class RuntimeSingletonTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._token = runtime_contextvar.set(None)
+
     def tearDown(self) -> None:
-        Runtime._instance = None
-
-    def test_runtime_constructor_sets_instance(self):
-        """Creating a Runtime instance sets Runtime.instance"""
-        assert Runtime._instance is None
-        _ = Runtime(MagicMock())
-        assert Runtime._instance is not None
-
-    def test_multiple_runtime_error(self):
-        """Creating multiple Runtimes raises an error."""
-        Runtime(MagicMock())
-        with pytest.raises(RuntimeError):
-            Runtime(MagicMock())
+        runtime_contextvar.reset(self._token)
 
     def test_instance_class_method(self):
-        """Runtime.instance() returns our singleton instance."""
+        """Runtime.instance() returns the Runtime bound to the current context."""
         with pytest.raises(RuntimeError):
-            # No Runtime: error
             Runtime.instance()
 
-        # Runtime instantiated: no error
-        _ = Runtime(MagicMock())
-        Runtime.instance()
+        runtime = Runtime(MagicMock())
+        runtime_contextvar.set(runtime)
+        assert Runtime.instance() is runtime
+        assert get_instance() is runtime
 
     def test_exists(self):
-        """Runtime.exists() returns True iff the Runtime singleton exists."""
+        """Runtime.exists() returns True iff a Runtime is bound to the current context."""
         assert not Runtime.exists()
-        _ = Runtime(MagicMock())
+        assert not exists()
+
+        runtime_contextvar.set(Runtime(MagicMock()))
         assert Runtime.exists()
+        assert exists()
+
+    def test_each_context_sees_its_own_runtime(self):
+        """Several Runtimes coexist, one per context, as one SharedWorker hosts several apps."""
+
+        def bind_and_get(runtime: Runtime) -> Runtime:
+            runtime_contextvar.set(runtime)
+            return Runtime.instance()
+
+        first = Runtime(MagicMock())
+        second = Runtime(MagicMock())
+        assert contextvars.copy_context().run(bind_and_get, first) is first
+        assert contextvars.copy_context().run(bind_and_get, second) is second
+        assert not Runtime.exists()
 
     def test_cache_storage_manager_property_exposes_config_value(self):
         """Runtime.cache_storage_manager returns the manager from RuntimeConfig.

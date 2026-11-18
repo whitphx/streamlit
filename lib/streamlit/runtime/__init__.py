@@ -14,25 +14,24 @@
 # limitations under the License.
 
 from __future__ import annotations
-from contextvars import ContextVar
 
-from streamlit.runtime.runtime import Runtime, RuntimeConfig, RuntimeState
+from streamlit.runtime.runtime import (
+    Runtime,
+    RuntimeConfig,
+    RuntimeState,
+    runtime_contextvar,
+)
 from streamlit.runtime.session_manager import (
     SessionClient,
     SessionClientDisconnectedError,
 )
-
-runtime_contextvar: ContextVar[Runtime | None] = ContextVar("runtime", default=None)
 
 
 def get_instance() -> Runtime:
     """Return the singleton Runtime instance. Raise an Error if the
     Runtime hasn't been created yet.
     """
-    runtime = runtime_contextvar.get()
-    if not runtime:
-        raise Exception("Runtime instance not created yet")
-    return runtime
+    return Runtime.instance()
 
 
 def exists() -> bool:
@@ -43,7 +42,7 @@ def exists() -> bool:
     the Runtime will not exist, and various Streamlit functions need
     to adapt.
     """
-    return runtime_contextvar.get() is not None
+    return Runtime.exists()
 
 
 __all__ = [
@@ -54,4 +53,5 @@ __all__ = [
     "SessionClientDisconnectedError",
     "exists",
     "get_instance",
+    "runtime_contextvar",
 ]

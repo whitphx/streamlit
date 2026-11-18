@@ -18,6 +18,7 @@ import asyncio
 import sys
 import time
 import traceback
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Final, NamedTuple
@@ -163,7 +164,33 @@ class AsyncObjects(NamedTuple):
     stopped: asyncio.Future[None]
 
 
+# A ContextVar rather than a class attribute
+# because one SharedWorker hosts several apps, each with its own Runtime.
+runtime_contextvar: ContextVar[Runtime | None] = ContextVar("runtime", default=None)
+
+
 class Runtime:
+    @classmethod
+    def instance(cls) -> Runtime:
+        """Return the singleton Runtime instance. Raise an Error if the
+        Runtime hasn't been created yet.
+        """
+        runtime = runtime_contextvar.get()
+        if runtime is None:
+            raise RuntimeError("Runtime hasn't been created!")
+        return runtime
+
+    @classmethod
+    def exists(cls) -> bool:
+        """True if the singleton Runtime instance has been created.
+
+        When a Streamlit app is running in "raw mode" - that is, when the
+        app is run via `python app.py` instead of `streamlit run app.py` -
+        the Runtime will not exist, and various Streamlit functions need
+        to adapt.
+        """
+        return runtime_contextvar.get() is not None
+
     def __init__(self, config: RuntimeConfig) -> None:
         """Create a Runtime instance. It won't be started yet.
 
